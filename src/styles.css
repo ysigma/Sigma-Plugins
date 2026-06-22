@@ -129,6 +129,18 @@ body,
   opacity: 0.9;
 }
 
+/* Strip react-globe.gl's built-in float-tooltip wrapper (dark box) so only
+   our own .globe-tooltip card is visible. !important beats the library's
+   injected stylesheet regardless of load order. */
+.float-tooltip-kap {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  max-width: none !important;
+  font: inherit !important;
+}
+
 /* ---------- Empty / setup state ---------- */
 .empty-state {
   position: absolute;

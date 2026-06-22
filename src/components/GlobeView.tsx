@@ -113,6 +113,9 @@ export default function GlobeView({
           ref={globeRef}
           width={size.width}
           height={size.height}
+          // Antialiasing + a logarithmic depth buffer stop the country border
+          // lines from shimmering / z-fighting while the globe rotates.
+          rendererConfig={{ antialias: true, logarithmicDepthBuffer: true }}
           onGlobeReady={() => setGlobeReady(true)}
           backgroundColor={darkMode ? "#0b1320" : "#ffffff"}
           globeImageUrl={globeImageUrl}

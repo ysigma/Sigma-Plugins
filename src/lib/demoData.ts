@@ -59,3 +59,23 @@ export const demoValueByCcn3: Record<string, number> = (() => {
   }
   return out;
 })();
+
+// A demo "tier" per country (derived from the value), for previewing the
+// color-by-tier-column mode at ?demo=1&tier=1.
+export const DEMO_TIER_NAME = "Tier (demo)";
+export const DEMO_TIER_ORDER = ["Low", "Medium", "High", "Very High"];
+
+function tierForValue(v: number): string {
+  if (v >= 200) return "Very High";
+  if (v >= 80) return "High";
+  if (v >= 40) return "Medium";
+  return "Low";
+}
+
+export const demoTierByCcn3: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const [code, value] of Object.entries(demoValueByCcn3)) {
+    out[code] = tierForValue(value);
+  }
+  return out;
+})();
