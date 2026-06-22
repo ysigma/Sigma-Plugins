@@ -7,6 +7,7 @@ import { countryFeatures, countryLabels } from "./lib/geo";
 import { countryName, resolveCountryCode } from "./lib/countries";
 import { buildColorScale, type BucketMethod } from "./lib/color";
 import { formatFull } from "./lib/format";
+import { DEMO_METRIC_NAME, demoValueByCcn3 } from "./lib/demoData";
 
 /** Column configs may come back as a single id or an array of ids. */
 function firstId(value: unknown): string | undefined {
@@ -25,11 +26,28 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 }
 
+/**
+ * True when the page is opened directly in a browser rather than embedded in
+ * Sigma's iframe (or when ?demo is present). Used to show sample data so the
+ * globe is visible without configuring Sigma.
+ */
+function detectStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (new URLSearchParams(window.location.search).has("demo")) return true;
+    return window.self === window.top;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const config = useConfig() ?? {};
   const sourceId = typeof config.source === "string" ? config.source : undefined;
   const data = useElementData(sourceId ?? "");
   const columns = useElementColumns(sourceId ?? "");
+
+  const standalone = useMemo(detectStandalone, []);
 
   // Let Sigma know the plugin has finished its initial load.
   useEffect(() => {
@@ -39,16 +57,32 @@ export default function App() {
   const countryColId = firstId(config.country);
   const metricColId = firstId(config.metric);
 
+  // In standalone preview, allow quick style overrides via URL, e.g.
+  // ?demo=1&dark=1&labels=1&rotate=0&palette=Greens&buckets=6
+  const preview = useMemo(() => {
+    if (!standalone || typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search);
+  }, [standalone]);
+
   // Style / scale options (with sensible defaults to match the editor panel).
-  const darkMode = config.darkMode === true;
-  const showLabels = config.showLabels === true;
-  const autoRotate = config.autoRotate !== false;
-  const showLegend = config.showLegend !== false;
-  const palette = typeof config.palette === "string" ? config.palette : "Blues";
-  const buckets = parseInt(typeof config.buckets === "string" ? config.buckets : "5", 10);
+  const darkMode = preview ? preview.get("dark") === "1" : config.darkMode === true;
+  const showLabels = preview ? preview.get("labels") === "1" : config.showLabels === true;
+  const autoRotate = preview ? preview.get("rotate") !== "0" : config.autoRotate !== false;
+  const showLegend = preview ? preview.get("legend") !== "0" : config.showLegend !== false;
+  const palette =
+    (preview && preview.get("palette")) ||
+    (typeof config.palette === "string" ? config.palette : "Blues");
+  const buckets = parseInt(
+    (preview && preview.get("buckets")) ||
+      (typeof config.buckets === "string" ? config.buckets : "5"),
+    10,
+  );
   const bucketMethod: BucketMethod =
-    config.bucketMethod === "Equal interval" ? "Equal interval" : "Quantile";
+    (preview ? preview.get("method") : config.bucketMethod) === "Equal interval"
+      ? "Equal interval"
+      : "Quantile";
   const noDataColor =
+    (preview && preview.get("nodata")) ||
     (typeof config.noDataColor === "string" && config.noDataColor) ||
     (darkMode ? "#243245" : "#e3e8ef");
 
@@ -76,33 +110,37 @@ export default function App() {
     return { valueByCcn3: result, matched, unmatched };
   }, [data, countryColId, metricColId]);
 
+  // In standalone preview, fall back to the bundled sample data.
+  const activeValues = standalone ? demoValueByCcn3 : valueByCcn3;
+  const activeMetricName = standalone ? DEMO_METRIC_NAME : metricName;
+
   const scale = useMemo(
-    () => buildColorScale(Object.values(valueByCcn3), palette, buckets, bucketMethod),
-    [valueByCcn3, palette, buckets, bucketMethod],
+    () => buildColorScale(Object.values(activeValues), palette, buckets, bucketMethod),
+    [activeValues, palette, buckets, bucketMethod],
   );
 
   const getColor = useCallback(
     (ccn3: string): string => {
-      const value = valueByCcn3[ccn3];
+      const value = activeValues[ccn3];
       return value === undefined ? noDataColor : scale.colorFor(value);
     },
-    [valueByCcn3, scale, noDataColor],
+    [activeValues, scale, noDataColor],
   );
 
   const getTooltip = useCallback(
     (ccn3: string, fallbackName?: string): string => {
       const name = countryName(ccn3) ?? fallbackName ?? "Unknown";
-      const has = ccn3 in valueByCcn3;
-      const valueStr = has ? formatFull(valueByCcn3[ccn3]) : "No data";
+      const has = ccn3 in activeValues;
+      const valueStr = has ? formatFull(activeValues[ccn3]) : "No data";
       return `<div class="globe-tooltip ${darkMode ? "dark" : "light"}">
         <div class="tt-name">${escapeHtml(name)}</div>
-        <div class="tt-metric">${escapeHtml(metricName)}: <b>${escapeHtml(valueStr)}</b></div>
+        <div class="tt-metric">${escapeHtml(activeMetricName)}: <b>${escapeHtml(valueStr)}</b></div>
       </div>`;
     },
-    [valueByCcn3, metricName, darkMode],
+    [activeValues, activeMetricName, darkMode],
   );
 
-  const configured = !!sourceId && !!countryColId && !!metricColId;
+  const configured = standalone || (!!sourceId && !!countryColId && !!metricColId);
 
   return (
     <div className={`app ${darkMode ? "dark" : "light"}`}>
@@ -125,13 +163,17 @@ export default function App() {
           />
           {showLegend && scale.hasData && (
             <Legend
-              title={metricName}
+              title={activeMetricName}
               entries={scale.legend}
               showNoData
               noDataColor={noDataColor}
             />
           )}
-          {matched === 0 ? (
+          {standalone ? (
+            <div className="notice subtle">
+              Demo data — embed in Sigma and assign a Country + metric for live data.
+            </div>
+          ) : matched === 0 ? (
             <div className="notice">
               No rows matched a country. Make sure the Country column holds
               country names or ISO codes.

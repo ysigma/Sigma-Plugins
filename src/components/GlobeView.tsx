@@ -1,10 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import type { CountryFeature, LabelPoint } from "../lib/geo";
 
 const labelLat = (d: object) => (d as LabelPoint).lat;
 const labelLng = (d: object) => (d as LabelPoint).lng;
 const labelText = (d: object) => (d as LabelPoint).text;
+
+/** A tiny solid-color data-URL texture used as the globe (ocean) surface. */
+function solidColorTexture(color: string): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 2;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 2, 2);
+  }
+  return canvas.toDataURL();
+}
 
 interface GlobeViewProps {
   features: CountryFeature[];
@@ -27,10 +39,13 @@ export default function GlobeView({
   getColor,
   getTooltip,
 }: GlobeViewProps) {
+  // Kept as `any`: the GlobeMethods type pulls in three's types, which we don't
+  // need just to call controls()/pointOfView().
   const globeRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const posedRef = useRef(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [globeReady, setGlobeReady] = useState(false);
   const [hovered, setHovered] = useState<object | null>(null);
 
   // Keep the canvas sized to its container (the Sigma iframe).
@@ -46,31 +61,27 @@ export default function GlobeView({
 
   const ready = size.width > 0 && size.height > 0;
 
-  // Orbit controls + globe material respond to the style toggles.
+  // Configure orbit controls + initial framing once the globe is initialized.
   useEffect(() => {
     const globe = globeRef.current;
-    if (!globe) return;
-
+    if (!globe || !globeReady) return;
     const controls = globe.controls();
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 0.5;
     controls.enablePan = false;
     controls.minDistance = 175;
     controls.maxDistance = 600;
+    if (!posedRef.current) {
+      globe.pointOfView({ lat: 20, lng: 0, altitude: 2.2 }, 0);
+      posedRef.current = true;
+    }
+  }, [globeReady, autoRotate]);
 
-    const material = globe.globeMaterial();
-    material.color.set(darkMode ? "#13243d" : "#e9eff7");
-    if (material.emissive) material.emissive.set(darkMode ? "#0a1626" : "#000000");
-    material.shininess = darkMode ? 8 : 3;
-  }, [autoRotate, darkMode, ready]);
-
-  // Frame the globe once it first has a size.
-  useEffect(() => {
-    const globe = globeRef.current;
-    if (!globe || !ready || posedRef.current) return;
-    globe.pointOfView({ lat: 20, lng: 0, altitude: 2.2 }, 0);
-    posedRef.current = true;
-  }, [ready]);
+  // Ocean/globe color via a solid-color texture (no three import, no network).
+  const globeImageUrl = useMemo(
+    () => solidColorTexture(darkMode ? "#13243d" : "#e9eff7"),
+    [darkMode],
+  );
 
   // Stable accessors so hovering (local state) doesn't re-color every polygon.
   const capColor = useCallback(
@@ -102,7 +113,9 @@ export default function GlobeView({
           ref={globeRef}
           width={size.width}
           height={size.height}
+          onGlobeReady={() => setGlobeReady(true)}
           backgroundColor={darkMode ? "#0b1320" : "#ffffff"}
+          globeImageUrl={globeImageUrl}
           showAtmosphere
           atmosphereColor={darkMode ? "#4a90d9" : "#a9c7ef"}
           atmosphereAltitude={0.18}
