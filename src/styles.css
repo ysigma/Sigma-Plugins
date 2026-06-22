@@ -1,0 +1,228 @@
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+}
+
+.app {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.app.light {
+  background: #ffffff;
+  color: #1f2733;
+}
+
+.app.dark {
+  background: #0b1320;
+  color: #e9eef6;
+}
+
+.globe-container {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* ---------- Legend ---------- */
+.legend {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
+  min-width: 132px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2a3340;
+  box-shadow: 0 2px 10px rgba(15, 30, 60, 0.18);
+  backdrop-filter: blur(4px);
+}
+
+.app.dark .legend {
+  background: rgba(18, 28, 44, 0.92);
+  color: #e3e9f2;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.app.dark .legend-swatch {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.legend-label {
+  white-space: nowrap;
+}
+
+/* ---------- Hover tooltip (rendered by react-globe.gl) ---------- */
+.globe-tooltip {
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 12.5px;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: 0 3px 14px rgba(10, 20, 40, 0.28);
+}
+
+.globe-tooltip.light {
+  background: #ffffff;
+  color: #1f2733;
+  border: 1px solid rgba(20, 40, 80, 0.1);
+}
+
+.globe-tooltip.dark {
+  background: #14233a;
+  color: #eaf0f8;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.globe-tooltip .tt-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.globe-tooltip .tt-metric {
+  opacity: 0.9;
+}
+
+/* ---------- Empty / setup state ---------- */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.empty-card {
+  max-width: 360px;
+  text-align: center;
+}
+
+.empty-globe {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.empty-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.empty-card p {
+  margin: 0 0 14px;
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+.empty-steps {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  text-align: left;
+  display: inline-block;
+}
+
+.empty-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 13.5px;
+  opacity: 0.8;
+}
+
+.empty-steps li.done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.empty-steps .check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(70, 130, 220, 0.15);
+  color: #2f6fd0;
+  flex: 0 0 auto;
+}
+
+.empty-steps li.done .check {
+  background: rgba(46, 160, 90, 0.18);
+  color: #2ea05a;
+}
+
+/* ---------- Notices ---------- */
+.notice {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: 80%;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  text-align: center;
+  background: rgba(255, 244, 222, 0.96);
+  color: #7a5a13;
+  box-shadow: 0 2px 10px rgba(15, 30, 60, 0.16);
+}
+
+.notice.subtle {
+  background: rgba(240, 244, 250, 0.92);
+  color: #5a6675;
+}
+
+.app.dark .notice.subtle {
+  background: rgba(24, 34, 50, 0.92);
+  color: #aab6c6;
+}

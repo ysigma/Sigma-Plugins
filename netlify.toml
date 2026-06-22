@@ -1,0 +1,11 @@
+# Netlify deployment configuration for the Sigma 3D Globe plugin.
+# Connect this repo in Netlify (or run `netlify deploy`) and it will build and
+# publish the static plugin. Use the resulting HTTPS URL as the plugin's
+# "Production URL" when you register it with your Sigma organization.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
