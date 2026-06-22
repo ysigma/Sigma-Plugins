@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { useConfig, useElementColumns, useElementData, client } from "@sigmacomputing/plugin";
 import GlobeView from "./components/GlobeView";
 import Legend from "./components/Legend";
@@ -30,6 +30,11 @@ const HTML_ESCAPES: Record<string, string> = {
 };
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
+/** Prefix a bare hex value with '#' (preview URL params omit it). */
+function withHash(c: string): string {
+  return c && !c.startsWith("#") ? `#${c}` : c;
 }
 
 /** Comma-separated list -> trimmed non-empty strings. */
@@ -125,6 +130,32 @@ export default function App() {
     (preview && preview.get("nodata")) ||
     (typeof config.noDataColor === "string" && config.noDataColor) ||
     (darkMode ? "#243245" : "#e3e8ef");
+
+  // Customizable plugin background + border.
+  const customBg =
+    (preview && preview.get("bg")) ||
+    (typeof config.backgroundColor === "string" && config.backgroundColor) ||
+    "";
+  const background = customBg ? withHash(customBg) : darkMode ? "#0b1320" : "#ffffff";
+  const borderWidth =
+    parseInt(
+      (preview && preview.get("bw")) ||
+        (typeof config.borderWidth === "string" ? config.borderWidth : "0"),
+      10,
+    ) || 0;
+  const borderColorRaw =
+    (preview && preview.get("border")) ||
+    (typeof config.borderColor === "string" && config.borderColor) ||
+    "";
+  const borderColor = borderColorRaw
+    ? withHash(borderColorRaw)
+    : darkMode
+      ? "#22344b"
+      : "#d0d7e2";
+  const appStyle: CSSProperties = {
+    background,
+    border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor}` : undefined,
+  };
 
   const customColors = useMemo(() => parseHexColors(customColorsRaw), [customColorsRaw]);
   const tierOrder = useMemo(() => parseList(config.tierOrder), [config.tierOrder]);
@@ -242,7 +273,7 @@ export default function App() {
   ];
 
   return (
-    <div className={`app ${darkMode ? "dark" : "light"}`}>
+    <div className={`app ${darkMode ? "dark" : "light"}`} style={appStyle}>
       {!configured ? (
         <EmptyState steps={steps} />
       ) : (
@@ -253,16 +284,12 @@ export default function App() {
             showLabels={showLabels}
             autoRotate={autoRotate}
             darkMode={darkMode}
+            background={background}
             getColor={getColor}
             getTooltip={getTooltip}
           />
           {showLegend && hasColorData && (
-            <Legend
-              title={legendTitle}
-              entries={legendEntries}
-              showNoData
-              noDataColor={noDataColor}
-            />
+            <Legend title={legendTitle} entries={legendEntries} />
           )}
           {standalone ? (
             <div className="notice subtle">

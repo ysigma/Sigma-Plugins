@@ -24,6 +24,8 @@ interface GlobeViewProps {
   showLabels: boolean;
   autoRotate: boolean;
   darkMode: boolean;
+  /** Canvas background color (behind the globe). */
+  background: string;
   /** ccn3 -> CSS color for the polygon cap. */
   getColor: (ccn3: string) => string;
   /** ccn3 -> HTML string for the hover tooltip. */
@@ -36,6 +38,7 @@ export default function GlobeView({
   showLabels,
   autoRotate,
   darkMode,
+  background,
   getColor,
   getTooltip,
 }: GlobeViewProps) {
@@ -117,7 +120,7 @@ export default function GlobeView({
           // lines from shimmering / z-fighting while the globe rotates.
           rendererConfig={{ antialias: true, logarithmicDepthBuffer: true }}
           onGlobeReady={() => setGlobeReady(true)}
-          backgroundColor={darkMode ? "#0b1320" : "#ffffff"}
+          backgroundColor={background}
           globeImageUrl={globeImageUrl}
           showAtmosphere
           atmosphereColor={darkMode ? "#4a90d9" : "#a9c7ef"}

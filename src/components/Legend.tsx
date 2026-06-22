@@ -3,12 +3,10 @@ import type { LegendEntry } from "../lib/color";
 interface LegendProps {
   title: string;
   entries: LegendEntry[];
-  showNoData: boolean;
-  noDataColor: string;
 }
 
-/** Stepped legend matching the discrete color buckets. */
-export default function Legend({ title, entries, showNoData, noDataColor }: LegendProps) {
+/** Stepped legend matching the discrete color buckets / tier categories. */
+export default function Legend({ title, entries }: LegendProps) {
   if (entries.length === 0) return null;
   return (
     <div className="legend">
@@ -21,12 +19,6 @@ export default function Legend({ title, entries, showNoData, noDataColor }: Lege
           <span className="legend-label">{e.label}</span>
         </div>
       ))}
-      {showNoData && (
-        <div className="legend-row">
-          <span className="legend-swatch" style={{ background: noDataColor }} />
-          <span className="legend-label">No data</span>
-        </div>
-      )}
     </div>
   );
 }

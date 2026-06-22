@@ -73,6 +73,15 @@ export function configureEditorPanel(): void {
       label: "Bucket method (Measure mode)",
     },
     { name: "noDataColor", type: "color", label: "No-data color" },
+    { name: "backgroundColor", type: "color", label: "Background color" },
+    { name: "borderColor", type: "color", label: "Border color" },
+    {
+      name: "borderWidth",
+      type: "dropdown",
+      values: ["0", "1", "2", "3", "4", "6", "8"],
+      defaultValue: "0",
+      label: "Border width (px)",
+    },
     { name: "darkMode", type: "toggle", defaultValue: false, label: "Dark mode" },
     {
       name: "showLabels",
