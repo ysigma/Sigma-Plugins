@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -19,5 +20,15 @@ export default defineConfig({
     outDir: "dist",
     // react-globe.gl / three produce a large-ish bundle; silence the warning.
     chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      // Multi-page build: each plugin is its own HTML entry, so each gets its
+      // own URL when hosted (e.g. GitHub Pages):
+      //   index.html  -> 3D globe choropleth          ( /  )
+      //   saudi.html  -> Saudi Arabia 3D regions map  ( /saudi.html )
+      input: {
+        main: resolve(__dirname, "index.html"),
+        saudi: resolve(__dirname, "saudi.html"),
+      },
+    },
   },
 });

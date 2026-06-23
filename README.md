@@ -1,10 +1,25 @@
-# Sigma 3D Globe Plugin
+# Sigma Plugins
 
-An interactive, rotatable **3D globe** custom plugin for
-[Sigma](https://www.sigmacomputing.com/). Drop a **country** dimension and a
-**measure** onto it, and the globe paints each country as a choropleth (discrete
-color buckets). Hover any country to get a dynamic popup showing the country name
-and its value.
+A collection of custom [Sigma](https://www.sigmacomputing.com/) plugins built as
+a single Vite multi-page app and hosted on GitHub Pages. Each plugin is its own
+page, so each has its own URL to register in Sigma:
+
+| Plugin | Hosted URL (Production URL for Sigma) | Source |
+| --- | --- | --- |
+| **3D Globe choropleth** | `https://ysigma.github.io/Sigma-Plugins/` | `src/` |
+| **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
+
+> Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
+> new plugin page goes live at its URL once merged to `main`.
+
+---
+
+## 3D Globe Plugin
+
+An interactive, rotatable **3D globe** custom plugin for Sigma. Drop a
+**country** dimension and a **measure** onto it, and the globe paints each
+country as a choropleth (discrete color buckets). Hover any country to get a
+dynamic popup showing the country name and its value.
 
 ## Features
 
@@ -54,6 +69,71 @@ If multiple rows resolve to the same country, their measure values are **summed*
 In practice Sigma usually aggregates the measure per dimension value already, so
 you'll have one row per country. Rows whose country can't be matched are counted
 and surfaced in a small on-screen notice to aid debugging.
+
+---
+
+## Saudi Arabia Regions Map
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/saudi.html`**
+
+A **semi-3D, tilt-only** map of Saudi Arabia's 13 administrative regions, built
+on raw [Three.js](https://threejs.org/) (no globe library). The regions are
+extruded into a slab you can **tilt up and down** to see all provinces — the
+camera is constrained so it never spins around or under the map.
+
+### Features
+
+- 🗺️ **3D extruded regions** — all 13 ADM1 provinces, with region labels lying on
+  the map and crisp white borders. Geometry is bundled (simplified geoBoundaries
+  ADM1, ~1k points) so there are **no runtime network calls**.
+- 🎚️ **Tilt-only rotation** — drag to tilt between near top-down and a low oblique
+  angle; horizontal spin is locked by default (toggle "Allow left/right spin" for
+  a small ± range). Scroll to zoom.
+- 🎨 **Region choropleth** — color regions by a status/tier column using the same
+  positional color slots + ordered legend as the globe plugin (click a legend
+  section to filter).
+- 📍 **Site callouts** — drop labelled gold pin-bubbles from a second data source
+  (label + latitude + longitude + status). Healthy → green ✓, down → red ✕.
+- 🔎 **Hover tooltips** for regions and sites.
+- 🧭 **Region name matching** accepts English names and common alternates
+  (Mecca/Makkah, Medina/Madinah, Eastern/Ash Sharqiyah, Jeddah-less "Makkah", …)
+  and tolerates "Region"/"Province"/"Al-" noise.
+
+### Editor panel options
+
+| Group | Option | Description |
+| --- | --- | --- |
+| Regions | **Regions: data source** | Element providing one row per region. |
+| Regions | **Region name** | Region names (Riyadh, Makkah, …). |
+| Regions | **Color by (status/tier)** | Column whose values color each region. |
+| Regions | **Tier order / labels** | First → last ordering for the legend/colors. |
+| Regions | **Region measure** | Optional numeric value shown in the tooltip. |
+| Sites | **Sites: data source** | Element providing one row per site/pin. |
+| Sites | **Site label / latitude / longitude / status** | Pin text, position, and health. |
+| Colors | **Color 1–5** | Positional colors mapped to the tier order. |
+| Appearance | **Base region color / Background / Border** | Map styling. |
+| Appearance | **3D thickness** | Flat · Low · Medium · High slab depth. |
+| Appearance | **Initial tilt** | Top-down · Low · Medium · High. |
+| Appearance | **Allow left/right spin** | Off = tilt up/down only (default). |
+| Appearance | **Show region labels / legend** | Toggles. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that reproduces the
+reference design — plain regions with four healthy site callouts (DR, PIF TOWER,
+RDC, WAMID). Query params let you preview variants:
+
+- `?regions=1` — preview the data-driven region choropleth (+ `&legend=1`).
+- `?tilt=Top-down|Low|Medium|High`, `?extrude=Flat|Low|Medium|High`
+- `?spin=1`, `?labels=0`, `?bg=001018`
+
+### Region geometry
+
+Bundled at `src/saudi/lib/saudiProvinces.json` (source: geoBoundaries gbOpen
+SAU ADM1, simplified). Coordinates are projected to a flat plane with a plain
+Mercator and **fitted/centroid-ed in planar space** (not via d3's spherical
+helpers, which are winding-order sensitive), then extruded with
+`THREE.ExtrudeGeometry`.
 
 ## Local development
 
