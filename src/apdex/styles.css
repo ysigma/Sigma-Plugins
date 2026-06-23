@@ -1,0 +1,110 @@
+:root {
+  --apx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--apx-font);
+}
+
+/* Center the badge in the plugin viewport; background stays transparent so the
+   badge sits on whatever the workbook/element background is. */
+.apx-root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  overflow: hidden;
+}
+
+/* The pill. Border color + text colors are applied inline (driven by the
+   category condition); width / radius / padding come from the size + options. */
+.apx-badge {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.apx-label {
+  font-weight: 600;
+}
+
+.apx-value {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.apx-category {
+  font-weight: 600;
+}
+
+/* ---------- Setup / empty state ---------- */
+.apx-setup {
+  max-width: 360px;
+  text-align: center;
+  color: #5a6675;
+}
+
+.apx-setup h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: #1f2733;
+}
+
+.apx-setup p {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.apx-setup ul {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  text-align: left;
+  display: inline-block;
+}
+
+.apx-setup li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 13.5px;
+}
+
+.apx-setup li.done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.apx-setup .check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(70, 130, 220, 0.15);
+  color: #2f6fd0;
+  flex: 0 0 auto;
+}
+
+.apx-setup li.done .check {
+  background: rgba(46, 160, 90, 0.18);
+  color: #2ea05a;
+}
