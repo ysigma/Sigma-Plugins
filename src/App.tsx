@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useConfig, useElementColumns, useElementData, client } from "@sigmacomputing/plugin";
 import GlobeView from "./components/GlobeView";
-import Legend from "./components/Legend";
+import Legend, { type LegendVariant } from "./components/Legend";
 import EmptyState from "./components/EmptyState";
 import { countryFeatures, countryLabels } from "./lib/geo";
 import { countryName, resolveCountryCode } from "./lib/countries";
-import { buildCategoryScale, buildColorScale, parseHexColors, type BucketMethod } from "./lib/color";
+import {
+  buildCategoryScale,
+  buildMeasureBuckets,
+  buildMeasureContinuous,
+  parseHexColors,
+  type BucketMethod,
+  type LegendStyle,
+} from "./lib/color";
 import { formatFull } from "./lib/format";
 import {
   DEMO_METRIC_NAME,
@@ -15,7 +22,6 @@ import {
   demoValueByCcn3,
 } from "./lib/demoData";
 
-/** Column configs may come back as a single id or an array of ids. */
 function firstId(value: unknown): string | undefined {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : undefined;
   return typeof value === "string" ? value : undefined;
@@ -32,12 +38,10 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 }
 
-/** Prefix a bare hex value with '#' (preview URL params omit it). */
 function withHash(c: string): string {
   return c && !c.startsWith("#") ? `#${c}` : c;
 }
 
-/** Comma-separated list -> trimmed non-empty strings. */
 function parseList(input: string | undefined | null): string[] {
   if (!input) return [];
   return input
@@ -87,7 +91,6 @@ export default function App() {
     return new URLSearchParams(window.location.search);
   }, [standalone]);
 
-  // Let Sigma know the plugin has finished its initial load.
   useEffect(() => {
     client.config.setLoadingState(false);
   }, []);
@@ -96,7 +99,6 @@ export default function App() {
   const metricColId = firstId(config.metric);
   const tierColId = firstId(config.tier);
 
-  // Color mode (preview: ?tier=1 or ?colorby=tier forces tier mode).
   const colorBy: "Measure" | "Tier column" = preview
     ? preview.get("tier") === "1" || preview.get("colorby") === "tier"
       ? "Tier column"
@@ -106,7 +108,12 @@ export default function App() {
       : "Measure";
   const tierMode = colorBy === "Tier column";
 
-  // Style / scale options (preview allows quick overrides via URL).
+  const legendStyle: LegendStyle =
+    (preview ? preview.get("lstyle") : config.legendStyle) === "Color scale"
+      ? "Color scale"
+      : "Categorical";
+  const useGradient = legendStyle === "Color scale";
+
   const darkMode = preview ? preview.get("dark") === "1" : config.darkMode === true;
   const showLabels = preview ? preview.get("labels") === "1" : config.showLabels === true;
   const autoRotate = preview ? preview.get("rotate") !== "0" : config.autoRotate !== false;
@@ -114,9 +121,6 @@ export default function App() {
   const palette =
     (preview && preview.get("palette")) ||
     (typeof config.palette === "string" ? config.palette : "Blues");
-  const customColorsRaw =
-    (preview && preview.get("colors")) ||
-    (typeof config.customColors === "string" ? config.customColors : "");
   const buckets = parseInt(
     (preview && preview.get("buckets")) ||
       (typeof config.buckets === "string" ? config.buckets : "5"),
@@ -157,13 +161,21 @@ export default function App() {
     border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor}` : undefined,
   };
 
-  const customColors = useMemo(() => parseHexColors(customColorsRaw), [customColorsRaw]);
+  // Custom palette: 5 native color slots (or ?colors= in preview).
+  const customColors = useMemo(() => {
+    if (preview) return parseHexColors(preview.get("colors"));
+    return parseHexColors(
+      [config.color1, config.color2, config.color3, config.color4, config.color5]
+        .filter((c) => typeof c === "string" && c)
+        .join(","),
+    );
+  }, [preview, config.color1, config.color2, config.color3, config.color4, config.color5]);
+  const customKey = customColors.join(",");
   const tierOrder = useMemo(() => parseList(config.tierOrder), [config.tierOrder]);
 
   const metricName = (metricColId && columns?.[metricColId]?.name) || "Value";
   const tierName = (tierColId && columns?.[tierColId]?.name) || "Tier";
 
-  // Build per-country measure values and tier values from the Sigma data.
   const { valueByCcn3, tierByCcn3, matched, unmatched } = useMemo(() => {
     const values: Record<string, number> = {};
     const tiers: Record<string, string> = {};
@@ -195,70 +207,110 @@ export default function App() {
     return { valueByCcn3: values, tierByCcn3: tiers, matched, unmatched };
   }, [data, countryColId, metricColId, tierColId]);
 
-  // Resolve the active datasets (real Sigma data, or demo data when standalone).
+  // Demo data when running standalone.
   const activeValues = standalone ? demoValueByCcn3 : valueByCcn3;
-  const activeTiers = standalone
-    ? tierMode
-      ? demoTierByCcn3
-      : {}
-    : tierByCcn3;
+  const activeTiers = standalone ? (tierMode ? demoTierByCcn3 : {}) : tierByCcn3;
   const activeMetricName = standalone ? DEMO_METRIC_NAME : metricName;
   const activeTierName = standalone ? DEMO_TIER_NAME : tierName;
   const activeTierOrder = standalone ? DEMO_TIER_ORDER : tierOrder;
-
-  const customKey = customColors.join(",");
-
-  const measureScale = useMemo(
-    () => buildColorScale(Object.values(activeValues), palette, buckets, bucketMethod, customColors),
-    [activeValues, palette, buckets, bucketMethod, customKey],
-  );
 
   const categories = useMemo(
     () => orderedCategories(Object.values(activeTiers), activeTierOrder),
     [activeTiers, activeTierOrder],
   );
   const categoryScale = useMemo(
-    () => buildCategoryScale(categories, palette, customColors),
-    [categories, palette, customKey],
+    () => buildCategoryScale(categories, palette, customColors, legendStyle),
+    [categories, palette, customKey, legendStyle],
+  );
+  const bucketScale = useMemo(
+    () => buildMeasureBuckets(Object.values(activeValues), palette, buckets, bucketMethod, customColors),
+    [activeValues, palette, buckets, bucketMethod, customKey],
+  );
+  const contScale = useMemo(
+    () => buildMeasureContinuous(Object.values(activeValues), palette, customColors),
+    [activeValues, palette, customKey],
   );
 
-  const legendTitle = tierMode ? activeTierName : activeMetricName;
-  const legendEntries = tierMode ? categoryScale.legend : measureScale.legend;
-  const hasColorData = tierMode ? categoryScale.hasData : measureScale.hasData;
+  // Pick the active presentation based on mode + legend style.
+  let variant: LegendVariant;
+  let legendEntries = bucketScale.entries;
+  let continuous: { gradientCss: string; ticks: { pos: number; label: string }[] } | undefined;
+  let hasColorData: boolean;
+  let legendTitle: string;
+  let clickable: boolean;
+  let keyForCountry: (ccn3: string) => string | null;
+  let baseColorFor: (ccn3: string) => string;
 
-  const getColor = useCallback(
-    (ccn3: string): string => {
-      if (tierMode) {
-        const t = activeTiers[ccn3];
-        return t === undefined ? noDataColor : categoryScale.colorFor(t);
-      }
-      const value = activeValues[ccn3];
-      return value === undefined ? noDataColor : measureScale.colorFor(value);
-    },
-    [tierMode, activeTiers, activeValues, categoryScale, measureScale, noDataColor],
-  );
+  if (tierMode) {
+    variant = useGradient ? "gradient-discrete" : "segments";
+    legendEntries = categoryScale.entries;
+    hasColorData = categoryScale.hasData;
+    legendTitle = activeTierName;
+    clickable = true;
+    keyForCountry = (ccn3) => activeTiers[ccn3] ?? null;
+    baseColorFor = (ccn3) => {
+      const t = activeTiers[ccn3];
+      return t !== undefined ? categoryScale.colorByKey.get(t) ?? noDataColor : noDataColor;
+    };
+  } else if (useGradient) {
+    variant = "gradient-continuous";
+    continuous = { gradientCss: contScale.gradientCss, ticks: contScale.ticks };
+    hasColorData = contScale.hasData;
+    legendTitle = activeMetricName;
+    clickable = false;
+    keyForCountry = () => null;
+    baseColorFor = (ccn3) => {
+      const v = activeValues[ccn3];
+      return v === undefined ? noDataColor : contScale.colorForValue(v);
+    };
+  } else {
+    variant = "segments";
+    legendEntries = bucketScale.entries;
+    hasColorData = bucketScale.hasData;
+    legendTitle = activeMetricName;
+    clickable = true;
+    keyForCountry = (ccn3) => {
+      const v = activeValues[ccn3];
+      return v === undefined ? null : bucketScale.keyForValue(v);
+    };
+    baseColorFor = (ccn3) => {
+      const v = activeValues[ccn3];
+      if (v === undefined) return noDataColor;
+      const k = bucketScale.keyForValue(v);
+      return k !== null ? bucketScale.colorByKey.get(k) ?? noDataColor : noDataColor;
+    };
+  }
+
+  // Click-to-filter selection (ignored if it no longer matches the current legend).
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const legendKeys = useMemo(() => new Set(legendEntries.map((e) => e.key)), [legendEntries]);
+  const effectiveSelected =
+    clickable && selectedKey && legendKeys.has(selectedKey) ? selectedKey : null;
+  const onSelect = (key: string) => setSelectedKey((prev) => (prev === key ? null : key));
+
+  const getColor = (ccn3: string): string => {
+    if (effectiveSelected && keyForCountry(ccn3) !== effectiveSelected) return noDataColor;
+    return baseColorFor(ccn3);
+  };
 
   const hasMetric = !!metricColId || standalone;
-  const getTooltip = useCallback(
-    (ccn3: string, fallbackName?: string): string => {
-      const name = countryName(ccn3) ?? fallbackName ?? "Unknown";
-      const lines: string[] = [];
-      if (tierMode) {
-        const t = activeTiers[ccn3];
-        lines.push(`${escapeHtml(activeTierName)}: <b>${escapeHtml(t ?? "No data")}</b>`);
-      }
-      if (hasMetric) {
-        const v = activeValues[ccn3];
-        const valueStr = v !== undefined ? formatFull(v) : "No data";
-        lines.push(`${escapeHtml(activeMetricName)}: <b>${escapeHtml(valueStr)}</b>`);
-      }
-      return `<div class="globe-tooltip ${darkMode ? "dark" : "light"}">
-        <div class="tt-name">${escapeHtml(name)}</div>
-        ${lines.map((l) => `<div class="tt-metric">${l}</div>`).join("")}
-      </div>`;
-    },
-    [tierMode, activeTiers, activeValues, activeTierName, activeMetricName, hasMetric, darkMode],
-  );
+  const getTooltip = (ccn3: string, fallbackName?: string): string => {
+    const name = countryName(ccn3) ?? fallbackName ?? "Unknown";
+    const lines: string[] = [];
+    if (tierMode) {
+      const t = activeTiers[ccn3];
+      lines.push(`${escapeHtml(activeTierName)}: <b>${escapeHtml(t ?? "No data")}</b>`);
+    }
+    if (hasMetric) {
+      const v = activeValues[ccn3];
+      const valueStr = v !== undefined ? formatFull(v) : "No data";
+      lines.push(`${escapeHtml(activeMetricName)}: <b>${escapeHtml(valueStr)}</b>`);
+    }
+    return `<div class="globe-tooltip ${darkMode ? "dark" : "light"}">
+      <div class="tt-name">${escapeHtml(name)}</div>
+      ${lines.map((l) => `<div class="tt-metric">${l}</div>`).join("")}
+    </div>`;
+  };
 
   const configured =
     standalone ||
@@ -278,34 +330,43 @@ export default function App() {
         <EmptyState steps={steps} />
       ) : (
         <>
-          <GlobeView
-            features={countryFeatures}
-            labels={countryLabels}
-            showLabels={showLabels}
-            autoRotate={autoRotate}
-            darkMode={darkMode}
-            background={background}
-            getColor={getColor}
-            getTooltip={getTooltip}
-          />
-          {showLegend && hasColorData && (
-            <Legend title={legendTitle} entries={legendEntries} />
-          )}
-          {standalone ? (
-            <div className="notice subtle">
-              Demo data{tierMode ? " (color by tier)" : ""} — embed in Sigma for live data.
-            </div>
-          ) : matched === 0 ? (
-            <div className="notice">
-              No rows matched a country. Make sure the Country column holds
-              country names or ISO codes.
-            </div>
-          ) : (
-            unmatched > 0 && (
+          <div className="globe-wrap">
+            <GlobeView
+              features={countryFeatures}
+              labels={countryLabels}
+              showLabels={showLabels}
+              autoRotate={autoRotate}
+              darkMode={darkMode}
+              background={background}
+              getColor={getColor}
+              getTooltip={getTooltip}
+            />
+            {standalone ? (
               <div className="notice subtle">
-                {unmatched} row{unmatched === 1 ? "" : "s"} didn’t match a country.
+                Demo data{tierMode ? " (color by tier)" : ""} — embed in Sigma for live data.
               </div>
-            )
+            ) : matched === 0 ? (
+              <div className="notice">
+                No rows matched a country. Make sure the Country column holds
+                country names or ISO codes.
+              </div>
+            ) : (
+              unmatched > 0 && (
+                <div className="notice subtle">
+                  {unmatched} row{unmatched === 1 ? "" : "s"} didn’t match a country.
+                </div>
+              )
+            )}
+          </div>
+          {showLegend && hasColorData && (
+            <Legend
+              title={legendTitle}
+              variant={variant}
+              entries={legendEntries}
+              continuous={continuous}
+              selectedKey={effectiveSelected}
+              onSelect={clickable ? onSelect : undefined}
+            />
           )}
         </>
       )}
