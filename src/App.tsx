@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useConfig, useElementColumns, useElementData, client } from "@sigmacomputing/plugin";
 import GlobeView from "./components/GlobeView";
-import Legend, { type LegendVariant } from "./components/Legend";
+import Legend from "./components/Legend";
 import EmptyState from "./components/EmptyState";
 import { countryFeatures, countryLabels } from "./lib/geo";
 import { countryName, resolveCountryCode } from "./lib/countries";
 import {
   buildCategoryScale,
   buildMeasureBuckets,
-  buildMeasureContinuous,
   parseHexColors,
   type BucketMethod,
-  type LegendStyle,
 } from "./lib/color";
 import { formatFull } from "./lib/format";
 import {
@@ -108,24 +106,10 @@ export default function App() {
       : "Measure";
   const tierMode = colorBy === "Tier column";
 
-  const legendStyle: LegendStyle =
-    (preview ? preview.get("lstyle") : config.legendStyle) === "Color scale"
-      ? "Color scale"
-      : "Categorical";
-  const useGradient = legendStyle === "Color scale";
-
   const darkMode = preview ? preview.get("dark") === "1" : config.darkMode === true;
   const showLabels = preview ? preview.get("labels") === "1" : config.showLabels === true;
   const autoRotate = preview ? preview.get("rotate") !== "0" : config.autoRotate !== false;
   const showLegend = preview ? preview.get("legend") !== "0" : config.showLegend !== false;
-  const palette =
-    (preview && preview.get("palette")) ||
-    (typeof config.palette === "string" ? config.palette : "Blues");
-  const buckets = parseInt(
-    (preview && preview.get("buckets")) ||
-      (typeof config.buckets === "string" ? config.buckets : "5"),
-    10,
-  );
   const bucketMethod: BucketMethod =
     (preview ? preview.get("method") : config.bucketMethod) === "Equal interval"
       ? "Equal interval"
@@ -161,7 +145,8 @@ export default function App() {
     border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor}` : undefined,
   };
 
-  // Custom palette: 5 native color slots (or ?colors= in preview).
+  // The legend colors are the single source of truth (5 native pickers, or
+  // ?colors= in preview). They drive both the legend and the globe.
   const customColors = useMemo(() => {
     if (preview) return parseHexColors(preview.get("colors"));
     return parseHexColors(
@@ -219,73 +204,39 @@ export default function App() {
     [activeTiers, activeTierOrder],
   );
   const categoryScale = useMemo(
-    () => buildCategoryScale(categories, palette, customColors, legendStyle),
-    [categories, palette, customKey, legendStyle],
+    () => buildCategoryScale(categories, customColors),
+    [categories, customKey],
   );
   const bucketScale = useMemo(
-    () => buildMeasureBuckets(Object.values(activeValues), palette, buckets, bucketMethod, customColors),
-    [activeValues, palette, buckets, bucketMethod, customKey],
-  );
-  const contScale = useMemo(
-    () => buildMeasureContinuous(Object.values(activeValues), palette, customColors),
-    [activeValues, palette, customKey],
+    () => buildMeasureBuckets(Object.values(activeValues), bucketMethod, customColors),
+    [activeValues, bucketMethod, customKey],
   );
 
-  // Pick the active presentation based on mode + legend style.
-  let variant: LegendVariant;
-  let legendEntries = bucketScale.entries;
-  let continuous: { gradientCss: string; ticks: { pos: number; label: string }[] } | undefined;
-  let hasColorData: boolean;
-  let legendTitle: string;
-  let clickable: boolean;
-  let keyForCountry: (ccn3: string) => string | null;
-  let baseColorFor: (ccn3: string) => string;
+  // Presentation depends only on the color mode now.
+  const legendEntries = tierMode ? categoryScale.entries : bucketScale.entries;
+  const hasColorData = tierMode ? categoryScale.hasData : bucketScale.hasData;
+  const legendTitle = tierMode ? activeTierName : activeMetricName;
 
-  if (tierMode) {
-    variant = useGradient ? "gradient-discrete" : "segments";
-    legendEntries = categoryScale.entries;
-    hasColorData = categoryScale.hasData;
-    legendTitle = activeTierName;
-    clickable = true;
-    keyForCountry = (ccn3) => activeTiers[ccn3] ?? null;
-    baseColorFor = (ccn3) => {
+  const keyForCountry = (ccn3: string): string | null => {
+    if (tierMode) return activeTiers[ccn3] ?? null;
+    const v = activeValues[ccn3];
+    return v === undefined ? null : bucketScale.keyForValue(v);
+  };
+  const baseColorFor = (ccn3: string): string => {
+    if (tierMode) {
       const t = activeTiers[ccn3];
       return t !== undefined ? categoryScale.colorByKey.get(t) ?? noDataColor : noDataColor;
-    };
-  } else if (useGradient) {
-    variant = "gradient-continuous";
-    continuous = { gradientCss: contScale.gradientCss, ticks: contScale.ticks };
-    hasColorData = contScale.hasData;
-    legendTitle = activeMetricName;
-    clickable = false;
-    keyForCountry = () => null;
-    baseColorFor = (ccn3) => {
-      const v = activeValues[ccn3];
-      return v === undefined ? noDataColor : contScale.colorForValue(v);
-    };
-  } else {
-    variant = "segments";
-    legendEntries = bucketScale.entries;
-    hasColorData = bucketScale.hasData;
-    legendTitle = activeMetricName;
-    clickable = true;
-    keyForCountry = (ccn3) => {
-      const v = activeValues[ccn3];
-      return v === undefined ? null : bucketScale.keyForValue(v);
-    };
-    baseColorFor = (ccn3) => {
-      const v = activeValues[ccn3];
-      if (v === undefined) return noDataColor;
-      const k = bucketScale.keyForValue(v);
-      return k !== null ? bucketScale.colorByKey.get(k) ?? noDataColor : noDataColor;
-    };
-  }
+    }
+    const v = activeValues[ccn3];
+    if (v === undefined) return noDataColor;
+    const k = bucketScale.keyForValue(v);
+    return k !== null ? bucketScale.colorByKey.get(k) ?? noDataColor : noDataColor;
+  };
 
   // Click-to-filter selection (ignored if it no longer matches the current legend).
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const legendKeys = useMemo(() => new Set(legendEntries.map((e) => e.key)), [legendEntries]);
-  const effectiveSelected =
-    clickable && selectedKey && legendKeys.has(selectedKey) ? selectedKey : null;
+  const effectiveSelected = selectedKey && legendKeys.has(selectedKey) ? selectedKey : null;
   const onSelect = (key: string) => setSelectedKey((prev) => (prev === key ? null : key));
 
   const getColor = (ccn3: string): string => {
@@ -361,11 +312,9 @@ export default function App() {
           {showLegend && hasColorData && (
             <Legend
               title={legendTitle}
-              variant={variant}
               entries={legendEntries}
-              continuous={continuous}
               selectedKey={effectiveSelected}
-              onSelect={clickable ? onSelect : undefined}
+              onSelect={onSelect}
             />
           )}
         </>

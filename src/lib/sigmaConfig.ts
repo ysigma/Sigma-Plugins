@@ -3,7 +3,6 @@
  * Each `name` becomes a key on the object returned by `useConfig()`.
  */
 import { client } from "@sigmacomputing/plugin";
-import { PALETTE_NAMES } from "./color";
 
 export function configureEditorPanel(): void {
   client.config.configureEditorPanel([
@@ -45,32 +44,12 @@ export function configureEditorPanel(): void {
       placeholder: "e.g. Poor, Fair, Good, Excellent",
       label: "Tier order / labels (low → high)",
     },
-    {
-      name: "legendStyle",
-      type: "dropdown",
-      values: ["Categorical", "Color scale"],
-      defaultValue: "Categorical",
-      label: "Legend style",
-    },
-    {
-      name: "palette",
-      type: "dropdown",
-      values: [...PALETTE_NAMES],
-      defaultValue: "Blues",
-      label: "Color palette",
-    },
-    { name: "color1", type: "color", label: "Custom color 1 (low)" },
-    { name: "color2", type: "color", label: "Custom color 2" },
-    { name: "color3", type: "color", label: "Custom color 3" },
-    { name: "color4", type: "color", label: "Custom color 4" },
-    { name: "color5", type: "color", label: "Custom color 5 (high)" },
-    {
-      name: "buckets",
-      type: "dropdown",
-      values: ["3", "4", "5", "6", "7"],
-      defaultValue: "5",
-      label: "Number of buckets (Measure mode)",
-    },
+    // The legend colors — these drive both the legend and the globe (1:1).
+    { name: "color1", type: "color", label: "Color 1 (low / first)" },
+    { name: "color2", type: "color", label: "Color 2" },
+    { name: "color3", type: "color", label: "Color 3" },
+    { name: "color4", type: "color", label: "Color 4" },
+    { name: "color5", type: "color", label: "Color 5 (high / last)" },
     {
       name: "bucketMethod",
       type: "dropdown",

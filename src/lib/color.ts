@@ -1,56 +1,36 @@
 /**
- * Color scales for the globe + legend. The legend and globe always use the
- * SAME colors (1:1): the legend entries' colors are exactly what paints each
- * country.
+ * Color scales for the globe + legend.
  *
- *  - buildMeasureBuckets:    discrete buckets over a measure (categorical legend)
- *  - buildMeasureContinuous: smooth gradient over a measure (color-scale legend)
- *  - buildCategoryScale:     one color per tier category (either legend style)
+ * The colors come from ONE source: the user's color picks (or a default set as
+ * a fallback). The legend entries' colors are exactly what paint each country,
+ * so the legend and globe are always 1:1.
+ *
+ *  - buildMeasureBuckets: discrete buckets over a measure (one color per bucket)
+ *  - buildCategoryScale:  one color per tier category
  */
 import { scaleQuantile, scaleQuantize } from "d3-scale";
 import { extent } from "d3-array";
-import {
-  schemeBlues,
-  schemeGreens,
-  schemeOranges,
-  schemeReds,
-  schemePurples,
-  schemeYlGnBu,
-  schemeRdBu,
-  interpolateViridis,
-} from "d3-scale-chromatic";
 import { formatCompact } from "./format";
 
 export type BucketMethod = "Quantile" | "Equal interval";
-export type LegendStyle = "Categorical" | "Color scale";
-
-export const PALETTE_NAMES = [
-  "Blues",
-  "Greens",
-  "Oranges",
-  "Reds",
-  "Purples",
-  "Viridis",
-  "Yellow-Green-Blue",
-  "Red-Blue (diverging)",
-  "Custom",
-] as const;
-
-const SCHEMES: Record<string, readonly (readonly string[])[]> = {
-  Blues: schemeBlues,
-  Greens: schemeGreens,
-  Oranges: schemeOranges,
-  Reds: schemeReds,
-  Purples: schemePurples,
-  "Yellow-Green-Blue": schemeYlGnBu,
-  "Red-Blue (diverging)": schemeRdBu,
-};
 
 export interface LegendEntry {
   color: string;
   label: string;
   key: string;
 }
+
+/** Fallback distinct colors used until the user picks their own. */
+const DEFAULT_COLORS = [
+  "#4e79a7",
+  "#59a14f",
+  "#f28e2b",
+  "#e15759",
+  "#b07aa1",
+  "#76b7b2",
+  "#edc948",
+  "#ff9da7",
+];
 
 /** Parse a comma/space/newline-separated list of hex colors into #rrggbb strings. */
 export function parseHexColors(input: string | undefined | null): string[] {
@@ -63,69 +43,11 @@ export function parseHexColors(input: string | undefined | null): string[] {
     .filter((s) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s));
 }
 
-/** `n` distinct colors for the named palette (or the custom list). */
-export function colorsForCount(name: string, n: number, customColors?: string[]): string[] {
+/** `n` colors from the chosen palette (custom picks, or the default set). */
+export function colorsForCount(n: number, customColors?: string[]): string[] {
+  const base = customColors && customColors.length > 0 ? customColors : DEFAULT_COLORS;
   const count = Math.max(1, Math.round(n));
-  if (name === "Custom" || (customColors && customColors.length > 0)) {
-    const custom = customColors ?? [];
-    if (custom.length === 0) return colorsForCount("Blues", count);
-    return Array.from({ length: count }, (_, i) => custom[i % custom.length]);
-  }
-  if (name === "Viridis") {
-    return Array.from({ length: count }, (_, i) =>
-      interpolateViridis(count === 1 ? 0.5 : i / (count - 1)),
-    );
-  }
-  const scheme = SCHEMES[name] ?? schemeBlues;
-  if (count <= 2) return scheme[3].slice(0, count);
-  if (scheme[count]) return [...scheme[count]];
-  const widest = scheme[scheme.length - 1];
-  return Array.from({ length: count }, (_, i) =>
-    widest[Math.round((i / (count - 1)) * (widest.length - 1))],
-  );
-}
-
-// ---------- continuous ramp helpers ----------
-function hexToRgb(hex: string): [number, number, number] {
-  let h = hex.replace("#", "");
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const n = parseInt(h.slice(0, 6), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-function rgbToHex(r: number, g: number, b: number): string {
-  const f = (x: number) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0");
-  return `#${f(r)}${f(g)}${f(b)}`;
-}
-
-/** Color stops that define a continuous ramp for the palette. */
-export function rampStops(palette: string, customColors?: string[]): string[] {
-  if (customColors && customColors.length >= 2) return customColors;
-  if (customColors && customColors.length === 1) return [customColors[0], customColors[0]];
-  if (palette === "Viridis") return Array.from({ length: 9 }, (_, i) => interpolateViridis(i / 8));
-  const scheme = SCHEMES[palette] ?? schemeBlues;
-  const widest = scheme[Math.min(9, scheme.length - 1)] ?? scheme[scheme.length - 1];
-  return [...widest];
-}
-
-/** Sample a ramp (array of color stops) at t in [0,1]. */
-export function rampColorAt(stops: string[], t: number): string {
-  if (stops.length === 0) return "#cccccc";
-  if (stops.length === 1) return stops[0];
-  const tt = Math.max(0, Math.min(1, t));
-  const seg = tt * (stops.length - 1);
-  const i = Math.min(stops.length - 2, Math.floor(seg));
-  const f = seg - i;
-  const [r1, g1, b1] = hexToRgb(stops[i]);
-  const [r2, g2, b2] = hexToRgb(stops[i + 1]);
-  return rgbToHex(r1 + (r2 - r1) * f, g1 + (g2 - g1) * f, b1 + (b2 - b1) * f);
-}
-
-/** A CSS `linear-gradient(...)` string from color stops. */
-export function gradientCss(stops: string[]): string {
-  if (stops.length === 0) return "#cccccc";
-  if (stops.length === 1) return stops[0];
-  const parts = stops.map((c, i) => `${c} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`);
-  return `linear-gradient(to right, ${parts.join(", ")})`;
+  return Array.from({ length: count }, (_, i) => base[i % base.length]);
 }
 
 function rangeLabel(a: number, b: number): string {
@@ -143,29 +65,24 @@ export interface BucketScale {
 
 export function buildMeasureBuckets(
   values: number[],
-  palette: string,
-  buckets: number,
   method: BucketMethod,
-  customColors?: string[],
+  customColors: string[],
 ): BucketScale {
   const clean = values.filter((v) => typeof v === "number" && isFinite(v));
   if (clean.length === 0) {
     return { hasData: false, entries: [], colorByKey: new Map(), keyForValue: () => null };
   }
-  const useCustom =
-    (palette === "Custom" || (customColors?.length ?? 0) > 0) && (customColors?.length ?? 0) >= 2;
-  const k = useCustom
-    ? (customColors as string[]).length
-    : Math.max(3, Math.min(7, Math.round(buckets) || 5));
-  const colors = colorsForCount(palette, k, customColors);
+  // Number of buckets follows the number of colors the user picked.
+  const useCustom = customColors.length >= 2;
+  const k = useCustom ? customColors.length : 5;
+  const colors = colorsForCount(k, useCustom ? customColors : undefined);
   const [min, max] = extent(clean) as [number, number];
 
   if (min === max) {
     const color = colors[colors.length - 1];
-    const entries = [{ color, label: formatCompact(min), key: "0" }];
     return {
       hasData: true,
-      entries,
+      entries: [{ color, label: formatCompact(min), key: "0" }],
       colorByKey: new Map([["0", color]]),
       keyForValue: () => "0",
     };
@@ -196,34 +113,6 @@ export function buildMeasureBuckets(
   return { hasData: true, entries, colorByKey, keyForValue };
 }
 
-// ---------- measure: continuous gradient ----------
-export interface ContinuousScale {
-  hasData: boolean;
-  colorForValue: (v: number) => string;
-  gradientCss: string;
-  ticks: { pos: number; label: string }[];
-}
-
-export function buildMeasureContinuous(
-  values: number[],
-  palette: string,
-  customColors?: string[],
-): ContinuousScale {
-  const clean = values.filter((v) => typeof v === "number" && isFinite(v));
-  if (clean.length === 0) {
-    return { hasData: false, colorForValue: () => "#cccccc", gradientCss: "#cccccc", ticks: [] };
-  }
-  const stops = rampStops(palette, customColors);
-  const [min, max] = extent(clean) as [number, number];
-  const span = max - min || 1;
-  return {
-    hasData: true,
-    colorForValue: (v) => rampColorAt(stops, (v - min) / span),
-    gradientCss: gradientCss(stops),
-    ticks: [0, 0.25, 0.5, 0.75, 1].map((p) => ({ pos: p, label: formatCompact(min + p * span) })),
-  };
-}
-
 // ---------- tier categories ----------
 export interface CategoryScale {
   hasData: boolean;
@@ -233,21 +122,12 @@ export interface CategoryScale {
 
 export function buildCategoryScale(
   categories: string[],
-  palette: string,
-  customColors: string[] | undefined,
-  legendStyle: LegendStyle,
+  customColors: string[],
 ): CategoryScale {
   if (categories.length === 0) {
     return { hasData: false, entries: [], colorByKey: new Map() };
   }
-  const n = categories.length;
-  let colors: string[];
-  if (legendStyle === "Color scale") {
-    const stops = rampStops(palette, customColors);
-    colors = Array.from({ length: n }, (_, i) => rampColorAt(stops, n === 1 ? 0.5 : i / (n - 1)));
-  } else {
-    colors = colorsForCount(palette, n, customColors);
-  }
+  const colors = colorsForCount(categories.length, customColors);
   const entries = categories.map((c, i) => ({ color: colors[i], label: c, key: c }));
   return {
     hasData: true,

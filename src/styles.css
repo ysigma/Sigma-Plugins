@@ -69,111 +69,67 @@ body,
   text-align: center;
 }
 
-/* Categorical swatches */
-.legend-segments {
+/* Contiguous distinct-color bar */
+.legend-blocks {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  justify-content: center;
-  align-items: center;
+  align-items: stretch;
 }
 
-.legend-seg,
-.legend-lab {
+.legend-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: none;
   border: none;
+  padding: 0;
   cursor: pointer;
   color: inherit;
   font: inherit;
+  transition: opacity 0.12s;
 }
 
-.legend-seg {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 6px;
-  border-radius: 5px;
-  transition: opacity 0.12s, background 0.12s;
-}
-
-.legend-seg:hover {
-  background: rgba(125, 145, 175, 0.16);
-}
-
-.legend-seg.dim,
-.legend-lab.dim {
-  opacity: 0.32;
-}
-
-.legend-seg.sel {
-  font-weight: 600;
-  background: rgba(125, 145, 175, 0.2);
-}
-
-.legend-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-}
-
-.app.dark .legend-swatch {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Discrete categories shown as a gradient bar */
-.legend-grad-bar {
-  height: 14px;
+.legend-block {
+  display: block;
   width: 100%;
-  border-radius: 7px;
+  height: 16px;
 }
 
-.legend-grad-labels {
-  display: flex;
+.legend-col:first-child .legend-block {
+  border-top-left-radius: 7px;
+  border-bottom-left-radius: 7px;
+}
+
+.legend-col:last-child .legend-block {
+  border-top-right-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+.legend-col-label {
   margin-top: 5px;
-}
-
-.legend-lab {
-  flex: 1 1 0;
-  min-width: 0;
   text-align: center;
-  padding: 2px 4px;
-  border-radius: 4px;
+  font-size: 11px;
+  padding: 0 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: opacity 0.12s, background 0.12s;
 }
 
-.legend-lab:hover {
-  background: rgba(125, 145, 175, 0.16);
+.legend-col.dim {
+  opacity: 0.32;
 }
 
-.legend-lab.sel {
+.legend-col.sel .legend-col-label {
   font-weight: 600;
 }
 
-/* Continuous gradient (measure) */
-.legend-cont-bar {
-  height: 14px;
-  width: 100%;
-  border-radius: 7px;
+.legend-col.sel .legend-block {
+  outline: 2px solid rgba(0, 0, 0, 0.28);
+  outline-offset: -2px;
 }
 
-.legend-cont-ticks {
-  position: relative;
-  height: 16px;
-  margin-top: 5px;
-}
-
-.legend-tick {
-  position: absolute;
-  top: 0;
-  white-space: nowrap;
-  font-size: 11px;
-  opacity: 0.8;
+.app.dark .legend-col.sel .legend-block {
+  outline-color: rgba(255, 255, 255, 0.5);
 }
 
 /* ---------- Hover tooltip (rendered by react-globe.gl) ---------- */
