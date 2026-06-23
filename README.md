@@ -8,6 +8,8 @@ page, so each has its own URL to register in Sigma:
 | --- | --- | --- |
 | **3D Globe choropleth** | `https://ysigma.github.io/Sigma-Plugins/` | `src/` |
 | **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
+| **Mini bar-line table** | `https://ysigma.github.io/Sigma-Plugins/table.html` | `src/table/` |
+| **Apdex KPI badge** | `https://ysigma.github.io/Sigma-Plugins/apdex.html` | `src/apdex/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -135,6 +137,49 @@ Mercator and **fitted/centroid-ed in planar space** (not via d3's spherical
 helpers, which are winding-order sensitive), then extruded with
 `THREE.ExtrudeGeometry`.
 
+---
+
+## Apdex KPI Badge
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/apdex.html`**
+
+A compact **KPI badge / pill** that shows a single **measure** with its label and
+a **category** dimension — e.g. `Overall Apdex  0.92 · Excellent`. The border and
+text color are **driven by a condition on the category**: define a color per
+category value (green for *Excellent*, red for *Poor*, …) and the badge recolors
+automatically as the value changes. The border and the label/category text share
+one accent color (they're linked); only the number has its own color, and the
+background can also be set per condition.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Value (measure)** | column | The numeric measure shown as the big number. |
+| **Category (dimension)** | column | Drives the conditional colors and the trailing label. |
+| **Label** | text | Text before the number. Defaults to the value column's name. |
+| **Decimal places** | dropdown | `Auto`, or 0–4 fixed decimals. |
+| **Show category** | toggle | Show/hide the trailing category text. |
+| **Category separator** | text | Character before the category (default `·`). |
+| **Size** | dropdown | Small / Medium / Large. |
+| **Border width (px)** | dropdown | 0–4. |
+| **Corner radius (px)** | dropdown | 0–20, or fully rounded (`999`). |
+| **Value (number) color** | color | Color of the number (default white). |
+| **Default colors** | color ×2 | Accent + background used when no condition matches. |
+| **Condition 1–6** | text + color ×2 | Per slot: the category value to match, plus its border/text and background colors. |
+
+Conditions are matched against the category value case- and whitespace-insensitively;
+the **first match wins**. The standard Apdex tiers (*Excellent, Good, Fair, Poor,
+Unacceptable*) are prefilled and get sensible built-in colors out of the box, so you
+only pick colors where you want to override them.
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows the badge with demo data. Append
+query params to preview other states, e.g.
+`?category=Poor&value=0.45&label=My%20KPI`.
+
 ## Local development
 
 ```bash
@@ -207,9 +252,16 @@ Netlify serves the plugin over HTTPS (required for Sigma). The `base` is set to
 
 ## Project structure
 
+Each plugin is its own HTML entry (see `vite.config.ts`) backed by a source
+folder:
+
 ```
+index.html              # 3D Globe entry page          ( / )
+saudi.html              # Saudi regions entry page      ( /saudi.html )
+table.html              # Mini bar-line table page      ( /table.html )
+apdex.html              # Apdex KPI badge page          ( /apdex.html )
 src/
-  main.tsx              # entry: registers editor panel, mounts <App/>
+  main.tsx              # globe entry: registers editor panel, mounts <App/>
   App.tsx               # reads Sigma config/data, builds the country->value map
   components/
     GlobeView.tsx       # the react-globe.gl globe + hover handling
@@ -221,4 +273,12 @@ src/
     geo.ts              # TopoJSON -> GeoJSON features + label centroids
     color.ts            # discrete bucket color scale + legend
     format.ts           # number formatting
+  saudi/                # Saudi Arabia regions map plugin (Three.js)
+  table/                # Mini bar-line table plugin
+  apdex/                # Apdex KPI badge plugin
+    main.tsx            # entry: registers editor panel, mounts <ApdexApp/>
+    ApdexApp.tsx        # reads config/data, renders the badge
+    sigmaConfig.ts      # editor panel definition (value, category, conditions)
+    colors.ts           # condition → accent/background color resolution
+    styles.css          # badge styling
 ```

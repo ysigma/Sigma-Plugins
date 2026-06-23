@@ -26,10 +26,12 @@ export default defineConfig({
       //   index.html  -> 3D globe choropleth          ( /  )
       //   saudi.html  -> Saudi Arabia 3D regions map  ( /saudi.html )
       //   table.html  -> Mini bar-line table          ( /table.html )
+      //   apdex.html  -> Apdex KPI badge              ( /apdex.html )
       input: {
         main: resolve(__dirname, "index.html"),
         saudi: resolve(__dirname, "saudi.html"),
         table: resolve(__dirname, "table.html"),
+        apdex: resolve(__dirname, "apdex.html"),
       },
     },
   },
