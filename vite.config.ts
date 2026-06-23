@@ -1,8 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { fileURLToPath } from "node:url";
-
-const entry = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -23,11 +21,17 @@ export default defineConfig({
     // react-globe.gl / three produce a large-ish bundle; silence the warning.
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      // Each plugin is its own page/URL. The globe stays at index.html; the
-      // Apdex badge builds to apdex.html. Register each with Sigma separately.
+      // Multi-page build: each plugin is its own HTML entry, so each gets its
+      // own URL when hosted (e.g. GitHub Pages):
+      //   index.html  -> 3D globe choropleth          ( /  )
+      //   saudi.html  -> Saudi Arabia 3D regions map  ( /saudi.html )
+      //   table.html  -> Mini bar-line table          ( /table.html )
+      //   apdex.html  -> Apdex KPI badge              ( /apdex.html )
       input: {
-        main: entry("./index.html"),
-        apdex: entry("./apdex.html"),
+        main: resolve(__dirname, "index.html"),
+        saudi: resolve(__dirname, "saudi.html"),
+        table: resolve(__dirname, "table.html"),
+        apdex: resolve(__dirname, "apdex.html"),
       },
     },
   },

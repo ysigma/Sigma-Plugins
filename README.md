@@ -1,22 +1,27 @@
 # Sigma Plugins
 
-This repo hosts two [Sigma](https://www.sigmacomputing.com/) custom plugins, built
-from one Vite project and deployed as **separate URLs**:
+A collection of custom [Sigma](https://www.sigmacomputing.com/) plugins built as
+a single Vite multi-page app and hosted on GitHub Pages. Each plugin is its own
+page, so each has its own URL to register in Sigma:
 
-- **3D Globe** — `index.html` (the site root)
-- **Apdex badge** — `apdex.html`
+| Plugin | Hosted URL (Production URL for Sigma) | Source |
+| --- | --- | --- |
+| **3D Globe choropleth** | `https://ysigma.github.io/Sigma-Plugins/` | `src/` |
+| **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
+| **Mini bar-line table** | `https://ysigma.github.io/Sigma-Plugins/table.html` | `src/table/` |
+| **Apdex KPI badge** | `https://ysigma.github.io/Sigma-Plugins/apdex.html` | `src/apdex/` |
 
-Register each URL with Sigma independently (see
-[Register a plugin](#register-the-plugin-with-sigma)).
+> Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
+> new plugin page goes live at its URL once merged to `main`.
 
 ---
 
-## 3D Globe plugin
+## 3D Globe Plugin
 
-An interactive, rotatable **3D globe** custom plugin. Drop a **country** dimension
-and a **measure** onto it, and the globe paints each country as a choropleth
-(discrete color buckets). Hover any country to get a dynamic popup showing the
-country name and its value.
+An interactive, rotatable **3D globe** custom plugin for Sigma. Drop a
+**country** dimension and a **measure** onto it, and the globe paints each
+country as a choropleth (discrete color buckets). Hover any country to get a
+dynamic popup showing the country name and its value.
 
 ## Features
 
@@ -67,14 +72,83 @@ In practice Sigma usually aggregates the measure per dimension value already, so
 you'll have one row per country. Rows whose country can't be matched are counted
 and surfaced in a small on-screen notice to aid debugging.
 
-## Apdex badge plugin
+---
 
-A compact **KPI badge / pill** (`apdex.html`) that shows a single **measure** with
-its label and a **category** dimension — e.g. `Overall Apdex  0.92 · Excellent`.
-The border and text color are **driven by a condition on the category**: define a
-color per category value (green for *Excellent*, red for *Poor*, …) and the badge
-recolors automatically as the value changes. The border and the label/category text
-share one accent color (they're linked); only the number has its own color, and the
+## Saudi Arabia Regions Map
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/saudi.html`**
+
+A **semi-3D, tilt-only** map of Saudi Arabia's 13 administrative regions, built
+on raw [Three.js](https://threejs.org/) (no globe library). The regions are
+extruded into a slab you can **tilt up and down** to see all provinces — the
+camera is constrained so it never spins around or under the map.
+
+### Features
+
+- 🗺️ **3D extruded regions** — all 13 ADM1 provinces, with region labels lying on
+  the map and crisp white borders. Geometry is bundled (simplified geoBoundaries
+  ADM1, ~1k points) so there are **no runtime network calls**.
+- 🎚️ **Tilt-only rotation** — drag to tilt between near top-down and a low oblique
+  angle; horizontal spin is locked by default (toggle "Allow left/right spin" for
+  a small ± range). Scroll to zoom.
+- 🎨 **Region choropleth** — color regions by a status/tier column using the same
+  positional color slots + ordered legend as the globe plugin (click a legend
+  section to filter).
+- 📍 **Site callouts** — drop labelled gold pin-bubbles from a second data source
+  (label + latitude + longitude + status). Healthy → green ✓, down → red ✕.
+- 🔎 **Hover tooltips** for regions and sites.
+- 🧭 **Region name matching** accepts English names and common alternates
+  (Mecca/Makkah, Medina/Madinah, Eastern/Ash Sharqiyah, Jeddah-less "Makkah", …)
+  and tolerates "Region"/"Province"/"Al-" noise.
+
+### Editor panel options
+
+| Group | Option | Description |
+| --- | --- | --- |
+| Regions | **Regions: data source** | Element providing one row per region. |
+| Regions | **Region name** | Region names (Riyadh, Makkah, …). |
+| Regions | **Color by (status/tier)** | Column whose values color each region. |
+| Regions | **Tier order / labels** | First → last ordering for the legend/colors. |
+| Regions | **Region measure** | Optional numeric value shown in the tooltip. |
+| Sites | **Sites: data source** | Element providing one row per site/pin. |
+| Sites | **Site label / latitude / longitude / status** | Pin text, position, and health. |
+| Colors | **Color 1–5** | Positional colors mapped to the tier order. |
+| Appearance | **Base region color / Background / Border** | Map styling. |
+| Appearance | **3D thickness** | Flat · Low · Medium · High slab depth. |
+| Appearance | **Initial tilt** | Top-down · Low · Medium · High. |
+| Appearance | **Allow left/right spin** | Off = tilt up/down only (default). |
+| Appearance | **Show region labels / legend** | Toggles. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that reproduces the
+reference design — plain regions with four healthy site callouts (DR, PIF TOWER,
+RDC, WAMID). Query params let you preview variants:
+
+- `?regions=1` — preview the data-driven region choropleth (+ `&legend=1`).
+- `?tilt=Top-down|Low|Medium|High`, `?extrude=Flat|Low|Medium|High`
+- `?spin=1`, `?labels=0`, `?bg=001018`
+
+### Region geometry
+
+Bundled at `src/saudi/lib/saudiProvinces.json` (source: geoBoundaries gbOpen
+SAU ADM1, simplified). Coordinates are projected to a flat plane with a plain
+Mercator and **fitted/centroid-ed in planar space** (not via d3's spherical
+helpers, which are winding-order sensitive), then extruded with
+`THREE.ExtrudeGeometry`.
+
+---
+
+## Apdex KPI Badge
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/apdex.html`**
+
+A compact **KPI badge / pill** that shows a single **measure** with its label and
+a **category** dimension — e.g. `Overall Apdex  0.92 · Excellent`. The border and
+text color are **driven by a condition on the category**: define a color per
+category value (green for *Excellent*, red for *Poor*, …) and the badge recolors
+automatically as the value changes. The border and the label/category text share
+one accent color (they're linked); only the number has its own color, and the
 background can also be set per condition.
 
 ### Editor panel options
@@ -100,8 +174,11 @@ the **first match wins**. The standard Apdex tiers (*Excellent, Good, Fair, Poor
 Unacceptable*) are prefilled and get sensible built-in colors out of the box, so you
 only pick colors where you want to override them.
 
-> Preview the badge standalone at `http://localhost:3000/apdex.html` (it shows demo
-> data). Append e.g. `?category=Poor&value=0.45&label=My%20KPI` to preview other states.
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows the badge with demo data. Append
+query params to preview other states, e.g.
+`?category=Poor&value=0.45&label=My%20KPI`.
 
 ## Local development
 
@@ -111,8 +188,7 @@ npm run dev        # serves on http://localhost:3000
 ```
 
 > The dev server runs on port **3000** to match Sigma's **Plugin Dev Playground**
-> default URL (`http://localhost:3000`). The globe is at `/` and the Apdex badge is
-> at `/apdex.html`.
+> default URL (`http://localhost:3000`).
 
 ### Testing in Sigma
 
@@ -153,10 +229,8 @@ Netlify serves the plugin over HTTPS (required for Sigma). The `base` is set to
 
 1. Build & deploy (get your production HTTPS URL, e.g.
    `https://your-site.netlify.app`).
-2. A Sigma **Org Admin** registers each plugin with its **Production URL**
-   (Administration → Plugins → Register) — the globe at the site root
-   (`https://your-site.netlify.app/`) and the Apdex badge at
-   `https://your-site.netlify.app/apdex.html`. See
+2. A Sigma **Org Admin** registers the plugin with that **Production URL**
+   (Administration → Plugins → Register). See
    [Register a plugin](https://help.sigmacomputing.com/docs/register-a-plugin-with-your-sigma-organization).
 3. Add the plugin element to a workbook and configure its columns as above.
 
@@ -178,9 +252,14 @@ Netlify serves the plugin over HTTPS (required for Sigma). The `base` is set to
 
 ## Project structure
 
+Each plugin is its own HTML entry (see `vite.config.ts`) backed by a source
+folder:
+
 ```
-index.html              # 3D Globe entry page
-apdex.html              # Apdex badge entry page
+index.html              # 3D Globe entry page          ( / )
+saudi.html              # Saudi regions entry page      ( /saudi.html )
+table.html              # Mini bar-line table page      ( /table.html )
+apdex.html              # Apdex KPI badge page          ( /apdex.html )
 src/
   main.tsx              # globe entry: registers editor panel, mounts <App/>
   App.tsx               # reads Sigma config/data, builds the country->value map
@@ -189,12 +268,14 @@ src/
     Legend.tsx          # stepped bucket legend
     EmptyState.tsx      # setup instructions until configured
   lib/
-    sigmaConfig.ts      # globe editor panel definition
+    sigmaConfig.ts      # editor panel definition
     countries.ts        # auto-detect country -> ISO numeric matching
     geo.ts              # TopoJSON -> GeoJSON features + label centroids
-    color.ts            # discrete bucket color scale + legend (shared helpers)
+    color.ts            # discrete bucket color scale + legend
     format.ts           # number formatting
-  apdex/                # Apdex badge plugin
+  saudi/                # Saudi Arabia regions map plugin (Three.js)
+  table/                # Mini bar-line table plugin
+  apdex/                # Apdex KPI badge plugin
     main.tsx            # entry: registers editor panel, mounts <ApdexApp/>
     ApdexApp.tsx        # reads config/data, renders the badge
     sigmaConfig.ts      # editor panel definition (value, category, conditions)
