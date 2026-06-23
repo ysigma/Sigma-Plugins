@@ -1,18 +1,10 @@
 /**
- * Color scales for the globe + legend.
- *
- * The colors come from ONE source: the user's color picks (or a default set as
- * a fallback). The legend entries' colors are exactly what paint each country,
- * so the legend and globe are always 1:1.
- *
- *  - buildMeasureBuckets: discrete buckets over a measure (one color per bucket)
- *  - buildCategoryScale:  one color per tier category
+ * Categorical color scale: one color per tier category. The colors come from
+ * the user's color picks, mapped POSITIONALLY to the tier order (Color 1 ->
+ * first tier, Color 2 -> second, ...). Empty slots fall back to a default
+ * color for that position (they do not shift the others). Tier values are
+ * matched case/whitespace-insensitively so they line up with the typed order.
  */
-import { scaleQuantile, scaleQuantize } from "d3-scale";
-import { extent } from "d3-array";
-import { formatCompact } from "./format";
-
-export type BucketMethod = "Quantile" | "Equal interval";
 
 export interface LegendEntry {
   color: string;
@@ -20,7 +12,7 @@ export interface LegendEntry {
   key: string;
 }
 
-/** Fallback distinct colors used until the user picks their own. */
+/** Fallback distinct colors used for positions the user hasn't picked. */
 const DEFAULT_COLORS = [
   "#4e79a7",
   "#59a14f",
@@ -32,6 +24,10 @@ const DEFAULT_COLORS = [
   "#ff9da7",
 ];
 
+function isHex(s: unknown): s is string {
+  return typeof s === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s);
+}
+
 /** Parse a comma/space/newline-separated list of hex colors into #rrggbb strings. */
 export function parseHexColors(input: string | undefined | null): string[] {
   if (!input) return [];
@@ -40,98 +36,43 @@ export function parseHexColors(input: string | undefined | null): string[] {
     .map((s) => s.trim())
     .filter(Boolean)
     .map((s) => (s.startsWith("#") ? s : `#${s}`))
-    .filter((s) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s));
+    .filter(isHex);
 }
 
-/** `n` colors from the chosen palette (custom picks, or the default set). */
-export function colorsForCount(n: number, customColors?: string[]): string[] {
-  const base = customColors && customColors.length > 0 ? customColors : DEFAULT_COLORS;
-  const count = Math.max(1, Math.round(n));
-  return Array.from({ length: count }, (_, i) => base[i % base.length]);
+/** Normalize a tier value for matching (trim + lowercase + collapse spaces). */
+export function normalizeTier(value: unknown): string {
+  return String(value).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function rangeLabel(a: number, b: number): string {
-  if (a === b) return formatCompact(a);
-  return `${formatCompact(a)} – ${formatCompact(b)}`;
-}
-
-// ---------- measure: discrete buckets ----------
-export interface BucketScale {
-  hasData: boolean;
-  entries: LegendEntry[];
-  colorByKey: Map<string, string>;
-  keyForValue: (v: number) => string | null;
-}
-
-export function buildMeasureBuckets(
-  values: number[],
-  method: BucketMethod,
-  customColors: string[],
-): BucketScale {
-  const clean = values.filter((v) => typeof v === "number" && isFinite(v));
-  if (clean.length === 0) {
-    return { hasData: false, entries: [], colorByKey: new Map(), keyForValue: () => null };
-  }
-  // Number of buckets follows the number of colors the user picked.
-  const useCustom = customColors.length >= 2;
-  const k = useCustom ? customColors.length : 5;
-  const colors = colorsForCount(k, useCustom ? customColors : undefined);
-  const [min, max] = extent(clean) as [number, number];
-
-  if (min === max) {
-    const color = colors[colors.length - 1];
-    return {
-      hasData: true,
-      entries: [{ color, label: formatCompact(min), key: "0" }],
-      colorByKey: new Map([["0", color]]),
-      keyForValue: () => "0",
-    };
-  }
-
-  const scale =
-    method === "Equal interval"
-      ? scaleQuantize<string>().domain([min, max]).range(colors)
-      : scaleQuantile<string>().domain(clean).range(colors);
-  const edges =
-    method === "Equal interval"
-      ? [min, ...(scale as ReturnType<typeof scaleQuantize<string>>).thresholds(), max]
-      : [min, ...(scale as ReturnType<typeof scaleQuantile<string>>).quantiles(), max];
-
-  const entries = colors.map((color, i) => ({
-    color,
-    label: rangeLabel(edges[i], edges[i + 1]),
-    key: String(i),
-  }));
-  const colorByKey = new Map(entries.map((e) => [e.key, e.color]));
-  const keyForValue = (v: number): string | null => {
-    if (!isFinite(v)) return null;
-    for (let i = 0; i < edges.length - 1; i++) {
-      if (v <= edges[i + 1] || i === edges.length - 2) return String(i);
-    }
-    return String(colors.length - 1);
-  };
-  return { hasData: true, entries, colorByKey, keyForValue };
-}
-
-// ---------- tier categories ----------
 export interface CategoryScale {
   hasData: boolean;
   entries: LegendEntry[];
-  colorByKey: Map<string, string>;
+  keyForTier: (raw: unknown) => string | null;
+  colorForKey: (key: string) => string | undefined;
 }
 
+/**
+ * @param categories ordered tier labels (low -> high)
+ * @param colors positional color slots (may contain null/empty -> default)
+ */
 export function buildCategoryScale(
   categories: string[],
-  customColors: string[],
+  colors: (string | null | undefined)[],
 ): CategoryScale {
   if (categories.length === 0) {
-    return { hasData: false, entries: [], colorByKey: new Map() };
+    return { hasData: false, entries: [], keyForTier: () => null, colorForKey: () => undefined };
   }
-  const colors = colorsForCount(categories.length, customColors);
-  const entries = categories.map((c, i) => ({ color: colors[i], label: c, key: c }));
+  const entries = categories.map((label, i) => ({
+    color: isHex(colors[i]) ? (colors[i] as string) : DEFAULT_COLORS[i % DEFAULT_COLORS.length],
+    label,
+    key: normalizeTier(label),
+  }));
+  const colorByKey = new Map(entries.map((e) => [e.key, e.color]));
   return {
     hasData: true,
     entries,
-    colorByKey: new Map(entries.map((e) => [e.key, e.color])),
+    keyForTier: (raw) =>
+      raw == null || String(raw).trim() === "" ? null : normalizeTier(raw),
+    colorForKey: (key) => colorByKey.get(key),
   };
 }

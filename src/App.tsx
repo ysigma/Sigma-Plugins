@@ -5,12 +5,7 @@ import Legend from "./components/Legend";
 import EmptyState from "./components/EmptyState";
 import { countryFeatures, countryLabels } from "./lib/geo";
 import { countryName, resolveCountryCode } from "./lib/countries";
-import {
-  buildCategoryScale,
-  buildMeasureBuckets,
-  parseHexColors,
-  type BucketMethod,
-} from "./lib/color";
+import { buildCategoryScale, normalizeTier, parseHexColors } from "./lib/color";
 import { formatFull } from "./lib/format";
 import {
   DEMO_METRIC_NAME,
@@ -48,23 +43,26 @@ function parseList(input: string | undefined | null): string[] {
     .filter(Boolean);
 }
 
-/** Ordered distinct categories: preferred order first, then any extras seen in data. */
-function orderedCategories(values: string[], preferred: string[]): string[] {
+/** Ordered tier labels: the typed order first, then any extras seen in data. */
+function orderedCategories(tierValues: unknown[], preferred: string[]): string[] {
   const seen = new Set<string>();
-  const result: string[] = [];
+  const out: string[] = [];
   for (const p of preferred) {
-    if (!seen.has(p)) {
-      seen.add(p);
-      result.push(p);
+    const k = normalizeTier(p);
+    if (p && !seen.has(k)) {
+      seen.add(k);
+      out.push(p);
     }
   }
-  for (const v of values) {
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      result.push(v);
+  for (const v of tierValues) {
+    if (v == null || String(v).trim() === "") continue;
+    const k = normalizeTier(v);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(String(v));
     }
   }
-  return result;
+  return out;
 }
 
 function detectStandalone(): boolean {
@@ -94,26 +92,13 @@ export default function App() {
   }, []);
 
   const countryColId = firstId(config.country);
-  const metricColId = firstId(config.metric);
   const tierColId = firstId(config.tier);
-
-  const colorBy: "Measure" | "Tier column" = preview
-    ? preview.get("tier") === "1" || preview.get("colorby") === "tier"
-      ? "Tier column"
-      : "Measure"
-    : config.colorBy === "Tier column"
-      ? "Tier column"
-      : "Measure";
-  const tierMode = colorBy === "Tier column";
+  const metricColId = firstId(config.metric);
 
   const darkMode = preview ? preview.get("dark") === "1" : config.darkMode === true;
   const showLabels = preview ? preview.get("labels") === "1" : config.showLabels === true;
   const autoRotate = preview ? preview.get("rotate") !== "0" : config.autoRotate !== false;
   const showLegend = preview ? preview.get("legend") !== "0" : config.showLegend !== false;
-  const bucketMethod: BucketMethod =
-    (preview ? preview.get("method") : config.bucketMethod) === "Equal interval"
-      ? "Equal interval"
-      : "Quantile";
   const noDataColor =
     (preview && preview.get("nodata")) ||
     (typeof config.noDataColor === "string" && config.noDataColor) ||
@@ -145,30 +130,28 @@ export default function App() {
     border: borderWidth > 0 ? `${borderWidth}px solid ${borderColor}` : undefined,
   };
 
-  // The legend colors are the single source of truth (5 native pickers, or
-  // ?colors= in preview). They drive both the legend and the globe.
-  const customColors = useMemo(() => {
+  // Color slots mapped POSITIONALLY to the tier order (empty -> default).
+  const slotColors = useMemo<(string | null)[]>(() => {
     if (preview) return parseHexColors(preview.get("colors"));
-    return parseHexColors(
-      [config.color1, config.color2, config.color3, config.color4, config.color5]
-        .filter((c) => typeof c === "string" && c)
-        .join(","),
+    return [config.color1, config.color2, config.color3, config.color4, config.color5].map(
+      (c) => parseHexColors(typeof c === "string" ? c : "")[0] ?? null,
     );
   }, [preview, config.color1, config.color2, config.color3, config.color4, config.color5]);
-  const customKey = customColors.join(",");
+  const colorKey = slotColors.join("|");
+
   const tierOrder = useMemo(() => parseList(config.tierOrder), [config.tierOrder]);
 
-  const metricName = (metricColId && columns?.[metricColId]?.name) || "Value";
   const tierName = (tierColId && columns?.[tierColId]?.name) || "Tier";
+  const metricName = (metricColId && columns?.[metricColId]?.name) || "Value";
 
-  const { valueByCcn3, tierByCcn3, matched, unmatched } = useMemo(() => {
-    const values: Record<string, number> = {};
+  const { tierByCcn3, valueByCcn3, matched, unmatched } = useMemo(() => {
     const tiers: Record<string, string> = {};
+    const values: Record<string, number> = {};
     let matched = 0;
     let unmatched = 0;
     const countryVals: unknown[] = (countryColId && data?.[countryColId]) || [];
-    const metricVals: unknown[] = (metricColId && data?.[metricColId]) || [];
     const tierVals: unknown[] = (tierColId && data?.[tierColId]) || [];
+    const metricVals: unknown[] = (metricColId && data?.[metricColId]) || [];
     const n = countryVals.length;
     for (let i = 0; i < n; i++) {
       const ccn3 = resolveCountryCode(countryVals[i]);
@@ -177,65 +160,46 @@ export default function App() {
         continue;
       }
       let counted = false;
-      const value = Number(metricVals[i]);
-      if (isFinite(value)) {
-        values[ccn3] = (values[ccn3] ?? 0) + value;
-        counted = true;
-      }
       const tv = tierVals[i];
       if (tv != null && String(tv).trim() !== "" && !(ccn3 in tiers)) {
         tiers[ccn3] = String(tv);
         counted = true;
       }
+      const value = Number(metricVals[i]);
+      if (isFinite(value)) {
+        values[ccn3] = (values[ccn3] ?? 0) + value;
+        counted = true;
+      }
       if (counted) matched++;
     }
-    return { valueByCcn3: values, tierByCcn3: tiers, matched, unmatched };
-  }, [data, countryColId, metricColId, tierColId]);
+    return { tierByCcn3: tiers, valueByCcn3: values, matched, unmatched };
+  }, [data, countryColId, tierColId, metricColId]);
 
   // Demo data when running standalone.
+  const activeTiers = standalone ? demoTierByCcn3 : tierByCcn3;
   const activeValues = standalone ? demoValueByCcn3 : valueByCcn3;
-  const activeTiers = standalone ? (tierMode ? demoTierByCcn3 : {}) : tierByCcn3;
-  const activeMetricName = standalone ? DEMO_METRIC_NAME : metricName;
   const activeTierName = standalone ? DEMO_TIER_NAME : tierName;
+  const activeMetricName = standalone ? DEMO_METRIC_NAME : metricName;
   const activeTierOrder = standalone ? DEMO_TIER_ORDER : tierOrder;
 
   const categories = useMemo(
     () => orderedCategories(Object.values(activeTiers), activeTierOrder),
     [activeTiers, activeTierOrder],
   );
-  const categoryScale = useMemo(
-    () => buildCategoryScale(categories, customColors),
-    [categories, customKey],
-  );
-  const bucketScale = useMemo(
-    () => buildMeasureBuckets(Object.values(activeValues), bucketMethod, customColors),
-    [activeValues, bucketMethod, customKey],
+  const scale = useMemo(
+    () => buildCategoryScale(categories, slotColors),
+    [categories, colorKey],
   );
 
-  // Presentation depends only on the color mode now.
-  const legendEntries = tierMode ? categoryScale.entries : bucketScale.entries;
-  const hasColorData = tierMode ? categoryScale.hasData : bucketScale.hasData;
-  const legendTitle = tierMode ? activeTierName : activeMetricName;
-
-  const keyForCountry = (ccn3: string): string | null => {
-    if (tierMode) return activeTiers[ccn3] ?? null;
-    const v = activeValues[ccn3];
-    return v === undefined ? null : bucketScale.keyForValue(v);
-  };
+  const keyForCountry = (ccn3: string): string | null => scale.keyForTier(activeTiers[ccn3]);
   const baseColorFor = (ccn3: string): string => {
-    if (tierMode) {
-      const t = activeTiers[ccn3];
-      return t !== undefined ? categoryScale.colorByKey.get(t) ?? noDataColor : noDataColor;
-    }
-    const v = activeValues[ccn3];
-    if (v === undefined) return noDataColor;
-    const k = bucketScale.keyForValue(v);
-    return k !== null ? bucketScale.colorByKey.get(k) ?? noDataColor : noDataColor;
+    const k = scale.keyForTier(activeTiers[ccn3]);
+    return k != null ? scale.colorForKey(k) ?? noDataColor : noDataColor;
   };
 
-  // Click-to-filter selection (ignored if it no longer matches the current legend).
+  // Click-to-filter selection (ignored if it no longer matches the legend).
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const legendKeys = useMemo(() => new Set(legendEntries.map((e) => e.key)), [legendEntries]);
+  const legendKeys = useMemo(() => new Set(scale.entries.map((e) => e.key)), [scale]);
   const effectiveSelected = selectedKey && legendKeys.has(selectedKey) ? selectedKey : null;
   const onSelect = (key: string) => setSelectedKey((prev) => (prev === key ? null : key));
 
@@ -248,10 +212,8 @@ export default function App() {
   const getTooltip = (ccn3: string, fallbackName?: string): string => {
     const name = countryName(ccn3) ?? fallbackName ?? "Unknown";
     const lines: string[] = [];
-    if (tierMode) {
-      const t = activeTiers[ccn3];
-      lines.push(`${escapeHtml(activeTierName)}: <b>${escapeHtml(t ?? "No data")}</b>`);
-    }
+    const t = activeTiers[ccn3];
+    lines.push(`${escapeHtml(activeTierName)}: <b>${escapeHtml(t ?? "No data")}</b>`);
     if (hasMetric) {
       const v = activeValues[ccn3];
       const valueStr = v !== undefined ? formatFull(v) : "No data";
@@ -263,16 +225,12 @@ export default function App() {
     </div>`;
   };
 
-  const configured =
-    standalone ||
-    (!!sourceId && !!countryColId && (tierMode ? !!tierColId : !!metricColId));
+  const configured = standalone || (!!sourceId && !!countryColId && !!tierColId);
 
   const steps = [
     { label: "Pick a Data source element", done: !!sourceId },
     { label: "Assign a Country dimension (names or ISO codes)", done: !!countryColId },
-    tierMode
-      ? { label: "Assign a Tier column to color by", done: !!tierColId }
-      : { label: "Assign a Measure to color by", done: !!metricColId },
+    { label: "Assign a Tier column to color by", done: !!tierColId },
   ];
 
   return (
@@ -293,9 +251,7 @@ export default function App() {
               getTooltip={getTooltip}
             />
             {standalone ? (
-              <div className="notice subtle">
-                Demo data{tierMode ? " (color by tier)" : ""} — embed in Sigma for live data.
-              </div>
+              <div className="notice subtle">Demo data — embed in Sigma for live data.</div>
             ) : matched === 0 ? (
               <div className="notice">
                 No rows matched a country. Make sure the Country column holds
@@ -309,10 +265,10 @@ export default function App() {
               )
             )}
           </div>
-          {showLegend && hasColorData && (
+          {showLegend && scale.hasData && (
             <Legend
-              title={legendTitle}
-              entries={legendEntries}
+              title={activeTierName}
+              entries={scale.entries}
               selectedKey={effectiveSelected}
               onSelect={onSelect}
             />
