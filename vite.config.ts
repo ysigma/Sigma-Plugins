@@ -25,9 +25,11 @@ export default defineConfig({
       // own URL when hosted (e.g. GitHub Pages):
       //   index.html  -> 3D globe choropleth          ( /  )
       //   saudi.html  -> Saudi Arabia 3D regions map  ( /saudi.html )
+      //   table.html  -> Mini bar-line table          ( /table.html )
       input: {
         main: resolve(__dirname, "index.html"),
         saudi: resolve(__dirname, "saudi.html"),
+        table: resolve(__dirname, "table.html"),
       },
     },
   },
