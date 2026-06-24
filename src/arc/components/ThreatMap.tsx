@@ -444,7 +444,7 @@ export default function ThreatMap(props: ThreatMapProps) {
         }
         // glow + arrowhead at the head
         const [hx, hy] = bez(p0, cp, p2, headT);
-        const gr = ra.coreW * 4 + 6;
+        const gr = Math.min(ra.coreW * 2.2 + 4, 13);
         ctx.globalAlpha = 0.8 * win;
         const sp = glowSprite(ra.head);
         ctx.drawImage(sp, hx - gr, hy - gr, gr * 2, gr * 2);
@@ -452,7 +452,7 @@ export default function ThreatMap(props: ThreatMapProps) {
 
         const [tx, ty] = bezTangent(p0, cp, p2, headT);
         const ang = Math.atan2(ty, tx);
-        const sz = ra.coreW * 2 + 3.4;
+        const sz = Math.min(ra.coreW * 1.05 + 2, 6.5);
         ctx.save();
         ctx.translate(hx, hy);
         ctx.rotate(ang);
