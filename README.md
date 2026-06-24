@@ -8,6 +8,8 @@ page, so each has its own URL to register in Sigma:
 | --- | --- | --- |
 | **3D Globe choropleth** | `https://ysigma.github.io/Sigma-Plugins/` | `src/` |
 | **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
+| **Mini bar-line table** | `https://ysigma.github.io/Sigma-Plugins/table.html` | `src/table/` |
+| **Service status timeline** | `https://ysigma.github.io/Sigma-Plugins/status.html` | `src/status/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -135,6 +137,66 @@ Mercator and **fitted/centroid-ed in planar space** (not via d3's spherical
 helpers, which are winding-order sensitive), then extruded with
 `THREE.ExtrudeGeometry`.
 
+---
+
+## Service Status Timeline
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/status.html`**
+
+An uptime **status heatmap**: one row per application (the **Application / URL**
+column on the left), and a row of colored squares to the right where each square
+is one **truncated window of time**. The square's color is driven by a **status
+measure** — green when the service is up, red when it's down, amber when
+degraded. Built to reproduce a typical service-availability board.
+
+### Features
+
+- 🟩 **Timeline heatmap** — each square = one time bucket; gaps in the data render
+  as empty (no-data) squares so outages and monitoring gaps are visible.
+- ⏱️ **Selectable bucket size** — choose how much time each square represents:
+  **1 min · 5 min · 15 min · 30 min · 1 hour · 6 hours · 1 day**. Readings are
+  floored to the start of their bucket so they line up into a regular grid.
+- 🚦 **Binary up / down coloring** (with optional **degraded**) from the status
+  measure. `1`/`true`/`up`/`ok`/`healthy` → up; `0`/`false`/`down`/`error`/`fail`
+  → down. You can extend the down/degraded vocabularies in the editor panel
+  (e.g. add `500` or `maintenance` as Down).
+- 🧮 **Per-bucket aggregation** — when several readings fall in one square, combine
+  them by **Worst status wins** (default — any outage shows), **Most recent**, or
+  **Average**.
+- 🔗 **Clickable URLs** — a URL inside the row label opens the service in a new tab.
+- 🕐 **Auto time axis** — evenly spaced tick labels under the grid, formatted to
+  suit the bucket size.
+- 📊 **Demo mode** — opening the URL outside Sigma shows synthetic data for ~19
+  services so you can see the layout immediately.
+
+### Editor panel options
+
+| Group | Option | Description |
+| --- | --- | --- |
+| Data | **Data source** | Element providing one row per reading. |
+| Data | **Application / URL** | Row label (e.g. `BitBucket - https://…`). |
+| Data | **Timestamp** | When each reading was taken (datetime or epoch). |
+| Data | **Status measure** | Value that colors the square (up / down). |
+| Timeline | **Time per square** | Bucket size: 1 min → 1 day. |
+| Timeline | **When a square has multiple readings** | Worst status wins · Most recent · Average. |
+| Timeline | **Values counted as Down** | Optional extra tokens (e.g. `0, 500, maintenance`). |
+| Timeline | **Values counted as Degraded** | Optional extra tokens (e.g. `warn, slow`). |
+| Appearance | **Title** | Optional label, top-left. |
+| Appearance | **Up / Degraded / Down / No-data color** | Square colors. |
+| Appearance | **Background / Text color** | Panel styling. |
+| Appearance | **Label column width** | 180–480 px. |
+| Appearance | **Make URLs clickable** | Linkify URLs in the row label (default on). |
+| Appearance | **Show legend** | Up/Down(/Degraded) swatches in the header. |
+
+### How bucketing & coloring work
+
+Every reading's timestamp is floored to the start of its bucket
+(`floor(t / bucketMs) * bucketMs`). The grid spans from the earliest to the
+latest reading, **including empty buckets** so real gaps stay visible (capped at
+600 columns — increase the bucket size for very long ranges). Within each
+bucket the readings are classified to `up` / `degraded` / `down` and combined by
+the chosen aggregation; the resulting status picks the square color.
+
 ## Local development
 
 ```bash
@@ -221,4 +283,20 @@ src/
     geo.ts              # TopoJSON -> GeoJSON features + label centroids
     color.ts            # discrete bucket color scale + legend
     format.ts           # number formatting
+  status/               # Service status timeline (status.html)
+    main.tsx            # entry: registers editor panel, mounts <App/>
+    App.tsx             # buckets readings per app, builds the heatmap grid
+    components/
+      StatusRow.tsx     # one app row: label + track of status squares
+      TimeAxis.tsx      # evenly spaced time-axis tick labels
+      Legend.tsx        # up/down(/degraded) swatches
+      EmptyState.tsx    # setup instructions until configured
+    lib/
+      sigmaConfig.ts    # editor panel definition
+      time.ts           # bucket sizes, timestamp parsing, axis formatting
+      status.ts         # value -> status classification + per-bucket aggregation
+      demoData.ts       # synthetic services for standalone demo
 ```
+
+> Other plugins live alongside in `src/saudi/` and `src/table/`, each with its
+> own `*.html` entry at the repo root and a matching entry in `vite.config.ts`.
