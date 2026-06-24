@@ -10,6 +10,8 @@ page, so each has its own URL to register in Sigma:
 | **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
 | **Mini bar-line table** | `https://ysigma.github.io/Sigma-Plugins/table.html` | `src/table/` |
 | **Service status timeline** | `https://ysigma.github.io/Sigma-Plugins/status.html` | `src/status/` |
+| **Global threat-origin arc map** | `https://ysigma.github.io/Sigma-Plugins/arc.html` | `src/arc/` |
+| **Segmented Bar Meter** | `https://ysigma.github.io/Sigma-Plugins/segmented-bar/` | `segmented-bar/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -248,6 +250,53 @@ the tooltip. A route's accent severity is its **volume-weighted mean severity**
 rounded to the nearest bucket, so a mostly-medium route reads cooler than a
 mostly-critical one. Arc width scales with volume; brightness, flow speed and
 pulse size scale with the accent severity — all within the orange family.
+
+---
+
+## Segmented Bar Meter
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/segmented-bar/`**
+
+A horizontal gauge: a bar split into **four colored sections** with a **value
+marker** (needle + value pill) that sits at the right spot across a numeric
+scale. You define the **min and max** of the whole bar, the **three thresholds**
+that split it into sections, and the **color** of each section. Great for
+"current level vs. thresholds" displays (risk/threat level, SLA, score, etc.).
+
+### Features
+
+- 🎨 **4 section colors** — each picked from Sigma's color palette (sensible
+  green → red defaults if left blank).
+- 📐 **Custom thresholds** — type the three cut-points; sections can be unequal
+  widths. Leave a threshold blank to fall back to an equal quarter of the range.
+- 🎯 **Value marker** — a single measure value drives a needle + value pill,
+  clamped to the bar ends if it falls outside the range. The needle's core takes
+  the color of the section it lands in (or a fixed marker color you choose).
+- 🔢 **Scale & threshold labels**, optional **title**, configurable bar
+  thickness, decimal places, marker/background/text colors.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Value (measure)** | column | Numeric measure; the first value positions the marker. |
+| **Scale minimum / maximum** | text | The numeric range of the whole bar (default `0` / `100`). |
+| **Threshold 1 / 2 / 3** | text | Section boundaries. Blank → ¼ / ½ / ¾ of the range. |
+| **Section 1–4 color** | color | Color for each of the four sections (left → right). |
+| **Title** | text | Optional title shown above the bar. |
+| **Show value label** | toggle | Show/hide the value pill on the marker. |
+| **Show scale & threshold labels** | toggle | Show/hide min/threshold/max ticks and numbers. |
+| **Decimal places** | dropdown | `Auto` or a fixed number of decimals. |
+| **Bar thickness (px)** | dropdown | Height of the bar. |
+| **Marker color** | color | Overrides the marker core color (blank = section color). |
+| **Background / Text color** | color | Plugin background and text color (auto-contrast by default). |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+design (value `25` on a 0–100 scale). Query params preview variants:
+`?value=72&min=0&max=100&t=31,57,79&colors=3aa655,c9b13a,e08a3c,cf4436&title=Score&light=1`.
 
 ## Local development
 
