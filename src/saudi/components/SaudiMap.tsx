@@ -21,6 +21,8 @@ export interface SaudiMapProps {
   tiltDeg: number;
   /** When false, horizontal orbit is locked (tilt up/down only). */
   allowSpin: boolean;
+  /** Callout pin colour (box + tail); label text auto-contrasts. */
+  pinColor: string;
   siteTooltip: (s: SiteMarker) => string;
 }
 
@@ -28,6 +30,18 @@ const DEG = Math.PI / 180;
 
 function darken(color: any, f: number): any {
   return color.clone().multiplyScalar(f);
+}
+
+/** Dark or light callout label text depending on the pin colour's luminance. */
+function pinTextColor(hex: string): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return "#2a230f";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#2a230f" : "#ffffff";
 }
 
 /** Render a label (1–2 lines, uppercase) to a canvas texture. */
@@ -207,6 +221,16 @@ export default function SaudiMap(props: SaudiMapProps) {
       posedRef.current = true;
     }
   }, [props.allowSpin, props.tiltDeg, props.extrudeDepth]);
+
+  // ---- pin colour (+ contrasting label text) via CSS vars ----------------
+  // Set on the overlay container so changing the colour restyles the callouts
+  // without rebuilding any geometry.
+  useEffect(() => {
+    const ov = overlayRef.current;
+    if (!ov) return;
+    ov.style.setProperty("--pin-color", props.pinColor);
+    ov.style.setProperty("--pin-text", pinTextColor(props.pinColor));
+  }, [props.pinColor]);
 
   // ---- build / rebuild map content ---------------------------------------
   useEffect(() => {

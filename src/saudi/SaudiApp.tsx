@@ -62,6 +62,11 @@ export default function SaudiApp() {
     (typeof config.backgroundColor === "string" && config.backgroundColor
       ? withHash(config.backgroundColor)
       : "#1c1c20");
+  const pinColor =
+    (preview && preview.get("pin") && withHash(preview.get("pin")!)) ||
+    (typeof config.pinColor === "string" && config.pinColor
+      ? withHash(config.pinColor)
+      : "#cbb06a");
 
   const extrudeKey =
     (preview && preview.get("extrude")) ||
@@ -112,6 +117,7 @@ export default function SaudiApp() {
     <div className="sa-app" style={appStyle}>
       <SaudiMap
         background={background}
+        pinColor={pinColor}
         sites={sites}
         showLabels={showLabels}
         extrudeDepth={extrudeDepth}

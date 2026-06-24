@@ -45,6 +45,7 @@ export function configureEditorPanel(): void {
     },
 
     // ---- Appearance -------------------------------------------------------
+    { name: "pinColor", type: "color", label: "Pin color" },
     { name: "backgroundColor", type: "color", label: "Background color" },
     {
       name: "extrude",
