@@ -10,10 +10,10 @@ export interface FixedSite {
 }
 
 export const FIXED_SITES: FixedSite[] = [
-  { label: "DR", lng: 49.4, lat: 26.4 },
-  { label: "PIF TOWER", lng: 46.6, lat: 25.4 },
-  { label: "RDC", lng: 44.9, lat: 24.3 },
-  { label: "WAMID", lng: 48.0, lat: 24.3 },
+  { label: "DR", lng: 49.9, lat: 26.9 },
+  { label: "PIF TOWER", lng: 46.0, lat: 25.7 },
+  { label: "RDC", lng: 44.4, lat: 23.9 },
+  { label: "WAMID", lng: 47.9, lat: 24.0 },
 ];
 
 /** Normalize a label for matching data rows to a fixed pin. */
