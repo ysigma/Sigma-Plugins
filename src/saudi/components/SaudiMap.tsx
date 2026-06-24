@@ -46,7 +46,9 @@ function pinTextColor(hex: string): string {
 
 /** Render a label (1–2 lines, uppercase) to a canvas texture. */
 function makeLabelCanvas(text: string, color: string): { canvas: HTMLCanvasElement; aspect: number } {
-  const font = "700 72px Inter, Arial, system-ui, sans-serif";
+  // Canvas is rendered at high resolution (large font) then mapped onto a small
+  // plane, so labels stay crisp; aspect (w/h) is scale-invariant.
+  const font = "700 108px Inter, Arial, system-ui, sans-serif";
   const measure = document.createElement("canvas").getContext("2d")!;
   measure.font = font;
 
@@ -67,8 +69,8 @@ function makeLabelCanvas(text: string, color: string): { canvas: HTMLCanvasEleme
     lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
   }
 
-  const lineH = 86;
-  const pad = 16;
+  const lineH = 128;
+  const pad = 24;
   const w = Math.ceil(Math.max(...lines.map((l) => measure.measureText(l).width))) + pad * 2;
   const h = lines.length * lineH + pad;
   const canvas = document.createElement("canvas");
@@ -100,6 +102,7 @@ export default function SaudiMap(props: SaudiMapProps) {
   const markerElsRef = useRef<Array<{ el: HTMLDivElement; world: any }>>([]);
   const disposablesRef = useRef<any[]>([]);
   const posedRef = useRef(false);
+  const needsRenderRef = useRef(true);
 
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -116,7 +119,11 @@ export default function SaudiMap(props: SaudiMapProps) {
       alpha: false,
       logarithmicDepthBuffer: true,
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Render at >=2x (supersample on standard displays) up to 3x for crisp,
+    // anti-aliased borders and labels. Rendering is on-demand (see loop) so the
+    // higher resolution stays cheap.
+    const pixelRatio = () => Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+    renderer.setPixelRatio(pixelRatio());
     renderer.setSize(W, H);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
@@ -147,11 +154,7 @@ export default function SaudiMap(props: SaudiMapProps) {
     controlsRef.current = controls;
 
     const tmp = new THREE.Vector3();
-    let raf = 0;
-    const loop = () => {
-      raf = requestAnimationFrame(loop);
-      controls.update();
-      renderer.render(scene, camera);
+    const updateOverlays = () => {
       const { w, h } = sizeRef.current;
       for (const m of markerElsRef.current) {
         tmp.copy(m.world).project(camera);
@@ -166,6 +169,21 @@ export default function SaudiMap(props: SaudiMapProps) {
         m.el.style.transform = `translate(${x}px, ${y}px) translate(-25px, -100%)`;
       }
     };
+    // Re-render only when the camera moves (incl. damping) or something asks
+    // for it — keeps supersampled rendering cheap.
+    controls.addEventListener("change", () => {
+      needsRenderRef.current = true;
+    });
+    let raf = 0;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      controls.update();
+      if (needsRenderRef.current) {
+        renderer.render(scene, camera);
+        updateOverlays();
+        needsRenderRef.current = false;
+      }
+    };
     loop();
 
     const ro = new ResizeObserver(() => {
@@ -174,7 +192,9 @@ export default function SaudiMap(props: SaudiMapProps) {
       sizeRef.current = { w: nw, h: nh };
       camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
+      renderer.setPixelRatio(pixelRatio());
       renderer.setSize(nw, nh);
+      needsRenderRef.current = true;
     });
     ro.observe(mount);
 
@@ -209,8 +229,9 @@ export default function SaudiMap(props: SaudiMapProps) {
     controls.target.copy(target);
 
     const maxDim = Math.max(planeBounds.width, planeBounds.height);
-    const R = maxDim * 1.95;
-    controls.minDistance = maxDim * 0.7;
+    // Closer camera so the map fills the frame (less empty margin).
+    const R = maxDim * 1.45;
+    controls.minDistance = maxDim * 0.45;
     controls.maxDistance = maxDim * 3.4;
 
     if (!posedRef.current) {
@@ -220,6 +241,7 @@ export default function SaudiMap(props: SaudiMapProps) {
       controls.update();
       posedRef.current = true;
     }
+    needsRenderRef.current = true;
   }, [props.allowSpin, props.tiltDeg, props.extrudeDepth]);
 
   // ---- pin colour (+ contrasting label text) via CSS vars ----------------
@@ -308,12 +330,12 @@ export default function SaudiMap(props: SaudiMapProps) {
 
     if (props.showLabels) {
       for (const prov of provinces as ProvinceShape[]) {
-        const hUnits = Math.min(Math.max(6 + 7 * Math.sqrt(prov.areaRatio), 5.5), 11);
+        const hUnits = Math.min(Math.max(3.4 + 3.6 * Math.sqrt(prov.areaRatio), 3.0), 6.2);
         addLabel(prov.name, prov.centroid[0], prov.centroid[1], hUnits);
       }
       for (const lbl of EXTRA_LABELS) {
         const p = projectLngLat(lbl.lng, lbl.lat);
-        if (p) addLabel(lbl.text, p[0], p[1], 8 * (lbl.scale ?? 1));
+        if (p) addLabel(lbl.text, p[0], p[1], 5 * (lbl.scale ?? 1));
       }
     }
 
@@ -362,6 +384,7 @@ export default function SaudiMap(props: SaudiMapProps) {
       els.push({ el, world });
     }
     markerElsRef.current = els;
+    needsRenderRef.current = true;
   }, [props.background, props.showLabels, props.extrudeDepth, props.sites]);
 
   return (
