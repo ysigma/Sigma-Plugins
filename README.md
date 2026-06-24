@@ -85,49 +85,44 @@ camera is constrained so it never spins around or under the map.
 
 ### Features
 
-- 🗺️ **3D extruded regions** — all 13 ADM1 provinces, with region labels lying on
-  the map and crisp white borders. Geometry is bundled (simplified geoBoundaries
-  ADM1, ~1k points) so there are **no runtime network calls**.
+- 🗺️ **3D extruded regions** — all 13 ADM1 provinces in a fixed light silver-grey
+  palette (matching the reference design), with region labels lying on the map
+  and crisp white borders. Geometry is bundled (simplified geoBoundaries ADM1,
+  ~1k points) so there are **no runtime network calls**.
 - 🎚️ **Tilt-only rotation** — drag to tilt between near top-down and a low oblique
   angle; horizontal spin is locked by default (toggle "Allow left/right spin" for
   a small ± range). Scroll to zoom.
-- 🎨 **Region choropleth** — color regions by a status/tier column using the same
-  positional color slots + ordered legend as the globe plugin (click a legend
-  section to filter).
-- 📍 **Site callouts** — drop labelled gold pin-bubbles from a second data source
-  (label + latitude + longitude + status). Healthy → green ✓, down → red ✕.
-- 🔎 **Hover tooltips** for regions and sites.
-- 🧭 **Region name matching** accepts English names and common alternates
-  (Mecca/Makkah, Medina/Madinah, Eastern/Ash Sharqiyah, Jeddah-less "Makkah", …)
-  and tolerates "Region"/"Province"/"Al-" noise.
+- 📍 **Fixed site pins** — four callouts (DR, PIF TOWER, RDC, WAMID) baked in at
+  the reference-design positions (no lat/lng to manage). The **pin color** is a
+  picker; label text auto-contrasts for readability.
+- ✅ **Optional status** — a healthy/down state per pin can be driven from data,
+  matched to a pin by its label (healthy → green ✓, down → red ✕). With no data,
+  all pins show healthy.
+- 🔎 **Hover tooltips** on each pin, plus an extra "Ad Dammam" place label inside
+  Eastern Province.
 
 ### Editor panel options
 
 | Group | Option | Description |
 | --- | --- | --- |
-| Regions | **Regions: data source** | Element providing one row per region. |
-| Regions | **Region name** | Region names (Riyadh, Makkah, …). |
-| Regions | **Color by (status/tier)** | Column whose values color each region. |
-| Regions | **Tier order / labels** | First → last ordering for the legend/colors. |
-| Regions | **Region measure** | Optional numeric value shown in the tooltip. |
-| Sites | **Sites: data source** | Element providing one row per site/pin. |
-| Sites | **Site label / latitude / longitude / status** | Pin text, position, and health. |
-| Colors | **Color 1–5** | Positional colors mapped to the tier order. |
-| Appearance | **Base region color / Background / Border** | Map styling. |
+| Status | **Site status source** (optional) | Element providing per-site status. |
+| Status | **Site label** | Matches a row to a pin (DR / PIF TOWER / RDC / WAMID). |
+| Status | **Site status** | healthy → ✓ / down → ✕. |
+| Appearance | **Pin color** | Callout color (label text auto-contrasts). |
+| Appearance | **Background color** | Canvas background. |
 | Appearance | **3D thickness** | Flat · Low · Medium · High slab depth. |
 | Appearance | **Initial tilt** | Top-down · Low · Medium · High. |
 | Appearance | **Allow left/right spin** | Off = tilt up/down only (default). |
-| Appearance | **Show region labels / legend** | Toggles. |
+| Appearance | **Show region labels** | Toggle. |
 
 ### Standalone demo
 
-Opening the URL directly (outside Sigma) shows a demo that reproduces the
-reference design — plain regions with four healthy site callouts (DR, PIF TOWER,
-RDC, WAMID). Query params let you preview variants:
+Opening the URL directly (outside Sigma) reproduces the reference design — the
+four healthy site pins at their fixed positions. Query params preview variants:
 
-- `?regions=1` — preview the data-driven region choropleth (+ `&legend=1`).
+- `?pin=RRGGBB` — pin color, `?bg=RRGGBB` — background
 - `?tilt=Top-down|Low|Medium|High`, `?extrude=Flat|Low|Medium|High`
-- `?spin=1`, `?labels=0`, `?bg=001018`
+- `?spin=1`, `?labels=0`
 
 ### Region geometry
 

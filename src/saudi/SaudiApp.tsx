@@ -2,7 +2,7 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { useConfig, useElementData, client } from "@sigmacomputing/plugin";
 import SaudiMap from "./components/SaudiMap";
 import { isHealthy, type SiteMarker } from "./lib/markers";
-import { DEMO_SITES } from "./lib/demoData";
+import { FIXED_SITES, normalizeLabel } from "./lib/fixedSites";
 
 function firstId(value: unknown): string | undefined {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : undefined;
@@ -53,8 +53,6 @@ export default function SaudiApp() {
   }, []);
 
   const siteLabelId = firstId(config.siteLabel);
-  const siteLatId = firstId(config.siteLat);
-  const siteLngId = firstId(config.siteLng);
   const siteStatusId = firstId(config.siteStatus);
 
   const background =
@@ -62,6 +60,11 @@ export default function SaudiApp() {
     (typeof config.backgroundColor === "string" && config.backgroundColor
       ? withHash(config.backgroundColor)
       : "#1c1c20");
+  const pinColor =
+    (preview && preview.get("pin") && withHash(preview.get("pin")!)) ||
+    (typeof config.pinColor === "string" && config.pinColor
+      ? withHash(config.pinColor)
+      : "#cbb06a");
 
   const extrudeKey =
     (preview && preview.get("extrude")) ||
@@ -73,28 +76,30 @@ export default function SaudiApp() {
   const allowSpin = preview ? preview.get("spin") === "1" : config.allowSpin === true;
   const showLabels = preview ? preview.get("labels") !== "0" : config.showLabels !== false;
 
+  // Pins sit at fixed positions matching the reference design. Their
+  // healthy/down status is optionally driven from data, matched by label;
+  // unmatched pins (and the standalone preview) default to healthy.
   const sites = useMemo<SiteMarker[]>(() => {
-    if (standalone) return DEMO_SITES;
-    const labels: unknown[] = (siteLabelId && siteData?.[siteLabelId]) || [];
-    const lats: unknown[] = (siteLatId && siteData?.[siteLatId]) || [];
-    const lngs: unknown[] = (siteLngId && siteData?.[siteLngId]) || [];
-    const statuses: unknown[] = (siteStatusId && siteData?.[siteStatusId]) || [];
-    const out: SiteMarker[] = [];
-    for (let i = 0; i < labels.length; i++) {
-      const lat = Number(lats[i]);
-      const lng = Number(lngs[i]);
-      if (!isFinite(lat) || !isFinite(lng)) continue;
-      const status = statuses[i];
-      out.push({
-        label: String(labels[i] ?? ""),
-        lat,
-        lng,
-        status: status != null && String(status).trim() !== "" ? String(status) : undefined,
-        healthy: isHealthy(status),
-      });
+    const statusByLabel = new Map<string, unknown>();
+    if (!standalone) {
+      const labels: unknown[] = (siteLabelId && siteData?.[siteLabelId]) || [];
+      const statuses: unknown[] = (siteStatusId && siteData?.[siteStatusId]) || [];
+      for (let i = 0; i < labels.length; i++) {
+        const key = normalizeLabel(labels[i]);
+        if (key) statusByLabel.set(key, statuses[i]);
+      }
     }
-    return out;
-  }, [standalone, siteData, siteLabelId, siteLatId, siteLngId, siteStatusId]);
+    return FIXED_SITES.map((s) => {
+      const raw = statusByLabel.get(normalizeLabel(s.label));
+      return {
+        label: s.label,
+        lng: s.lng,
+        lat: s.lat,
+        status: raw != null && String(raw).trim() !== "" ? String(raw) : undefined,
+        healthy: isHealthy(raw),
+      };
+    });
+  }, [standalone, siteData, siteLabelId, siteStatusId]);
 
   const siteTooltip = useMemo(
     () => (s: SiteMarker) => {
@@ -105,13 +110,13 @@ export default function SaudiApp() {
     [],
   );
 
-  const configured = standalone || (!!siteSourceId && !!siteLabelId && !!siteLatId && !!siteLngId);
   const appStyle: CSSProperties = { background };
 
   return (
     <div className="sa-app" style={appStyle}>
       <SaudiMap
         background={background}
+        pinColor={pinColor}
         sites={sites}
         showLabels={showLabels}
         extrudeDepth={extrudeDepth}
@@ -119,16 +124,6 @@ export default function SaudiApp() {
         allowSpin={allowSpin}
         siteTooltip={siteTooltip}
       />
-
-      {!configured && (
-        <div className="sa-hint">
-          <b>Saudi Arabia regions map</b>
-          <span>
-            Add a <em>Sites</em> source (label + latitude + longitude + status) in
-            the editor panel. Drag to tilt up/down.
-          </span>
-        </div>
-      )}
     </div>
   );
 }
