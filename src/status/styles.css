@@ -1,0 +1,217 @@
+:root {
+  --sst-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --sst-label-w: 320px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.sst-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  font-family: var(--sst-font);
+  font-size: 14px;
+  line-height: 1.3;
+  padding: 14px 16px;
+  background: var(--sst-bg);
+  color: var(--sst-text);
+}
+
+/* --- Header / legend --- */
+.sst-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+}
+
+.sst-title {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sst-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  opacity: 0.85;
+  flex: 0 0 auto;
+}
+
+.sst-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.sst-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* --- Timeline grid --- */
+.sst-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sst-row {
+  display: grid;
+  grid-template-columns: var(--sst-label-w) 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.sst-label {
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sst-label a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sst-label a:hover {
+  text-decoration: underline;
+}
+
+.sst-track {
+  position: relative;
+  display: flex;
+  gap: 1px;
+  height: 26px;
+  width: 100%;
+}
+
+.sst-cell {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 1px;
+  transition: filter 0.1s ease-out;
+}
+
+.sst-cell:hover {
+  filter: brightness(1.18);
+}
+
+/* --- Time axis --- */
+.sst-axis-row {
+  margin-top: 2px;
+}
+
+.sst-axis-track {
+  position: relative;
+  height: 18px;
+  width: 100%;
+}
+
+.sst-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Notices / empty states --- */
+.sst-notice {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.sst-empty-rows {
+  padding: 24px 0;
+  text-align: center;
+  opacity: 0.6;
+  font-size: 13px;
+}
+
+.sst-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.sst-empty-card {
+  max-width: 380px;
+  text-align: center;
+}
+
+.sst-empty-card h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.sst-empty-card p {
+  margin: 0 0 14px;
+  opacity: 0.75;
+  font-size: 13.5px;
+}
+
+.sst-empty-steps {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  text-align: left;
+  display: inline-block;
+}
+
+.sst-empty-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 13.5px;
+  opacity: 0.85;
+}
+
+.sst-empty-steps li.done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.sst-empty-steps .check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(62, 207, 107, 0.18);
+  color: #3ecf6b;
+  flex: 0 0 auto;
+}
