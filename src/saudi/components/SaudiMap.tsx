@@ -3,14 +3,16 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { provinces, projectLngLat, planeBounds, type ProvinceShape } from "../lib/geo";
 import type { SiteMarker } from "../lib/markers";
+import {
+  REGION_FILL,
+  REGION_FILL_DEFAULT,
+  BORDER_COLOR,
+  LABEL_COLOR,
+  EXTRA_LABELS,
+} from "../lib/regionStyle";
 
 export interface SaudiMapProps {
-  /** region key -> cap (top) color; missing keys fall back to landColor. */
-  capColors: Record<string, string>;
-  landColor: string;
-  borderColor: string;
   background: string;
-  labelColor: string;
   sites: SiteMarker[];
   showLabels: boolean;
   /** Slab thickness in plane units (0 = flat). */
@@ -19,7 +21,6 @@ export interface SaudiMapProps {
   tiltDeg: number;
   /** When false, horizontal orbit is locked (tilt up/down only). */
   allowSpin: boolean;
-  regionTooltip: (key: string, name: string) => string | null;
   siteTooltip: (s: SiteMarker) => string;
 }
 
@@ -29,16 +30,12 @@ function darken(color: any, f: number): any {
   return color.clone().multiplyScalar(f);
 }
 
-/** Render a region label (1–2 lines, uppercase) to a canvas texture. */
-function makeLabelCanvas(
-  text: string,
-  color: string,
-): { canvas: HTMLCanvasElement; aspect: number } {
+/** Render a label (1–2 lines, uppercase) to a canvas texture. */
+function makeLabelCanvas(text: string, color: string): { canvas: HTMLCanvasElement; aspect: number } {
   const font = "700 72px Inter, Arial, system-ui, sans-serif";
   const measure = document.createElement("canvas").getContext("2d")!;
   measure.font = font;
 
-  // Wrap long multi-word labels onto two balanced lines.
   let lines = [text];
   if (text.length > 10 && text.includes(" ")) {
     const words = text.split(" ");
@@ -79,7 +76,6 @@ export default function SaudiMap(props: SaudiMapProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Long-lived three handles.
   const rendererRef = useRef<any>(null);
   const sceneRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
@@ -87,15 +83,10 @@ export default function SaudiMap(props: SaudiMapProps) {
   const contentRef = useRef<any>(null);
   const sizeRef = useRef({ w: 1, h: 1 });
 
-  // Per-build state used by the render loop / pointer handlers.
   const markerElsRef = useRef<Array<{ el: HTMLDivElement; world: any }>>([]);
-  const pickRef = useRef<any[]>([]);
-  const provinceMatsRef = useRef<Map<string, any[]>>(new Map());
-  const hoverKeyRef = useRef<string | null>(null);
   const disposablesRef = useRef<any[]>([]);
   const posedRef = useRef(false);
 
-  // Latest props for use inside the persistent loop / handlers.
   const propsRef = useRef(props);
   propsRef.current = props;
 
@@ -116,7 +107,7 @@ export default function SaudiMap(props: SaudiMapProps) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
-    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+    (renderer as any).__maxAniso = renderer.capabilities.getMaxAnisotropy();
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -124,9 +115,11 @@ export default function SaudiMap(props: SaudiMapProps) {
     const camera = new THREE.PerspectiveCamera(38, W / H, 1, 8000);
     cameraRef.current = camera;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.92));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.45);
-    dir.position.set(-220, 480, 320);
+    // High ambient keeps the flat caps near their true light-grey; a gentle
+    // directional only really shades the vertical extruded side walls.
+    scene.add(new THREE.AmbientLight(0xffffff, 0.96));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.38);
+    dir.position.set(-180, 520, 280);
     scene.add(dir);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -135,62 +128,10 @@ export default function SaudiMap(props: SaudiMapProps) {
     controls.dampingFactor = 0.09;
     controls.rotateSpeed = 0.55;
     controls.zoomSpeed = 0.7;
-    // Tilt range: near top-down -> low oblique, never reaching edge-on/under.
     controls.minPolarAngle = 6 * DEG;
     controls.maxPolarAngle = 82 * DEG;
     controlsRef.current = controls;
-    (renderer as any).__maxAniso = maxAniso;
 
-    const raycaster = new THREE.Raycaster();
-    const ndc = new THREE.Vector2();
-
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(pickRef.current, false);
-      const key: string | null = hits.length ? hits[0].object.userData.key : null;
-      if (key !== hoverKeyRef.current) {
-        // reset previous highlight
-        if (hoverKeyRef.current) {
-          for (const m of provinceMatsRef.current.get(hoverKeyRef.current) ?? [])
-            m.emissive.setHex(0x000000);
-        }
-        hoverKeyRef.current = key;
-        if (key) {
-          for (const m of provinceMatsRef.current.get(key) ?? []) m.emissive.setHex(0x3a3a3a);
-        }
-      }
-      const tip = tooltipRef.current!;
-      if (key) {
-        const name = hits[0].object.userData.name as string;
-        const html = propsRef.current.regionTooltip(key, name);
-        if (html) {
-          tip.innerHTML = html;
-          tip.style.display = "block";
-          const ox = e.clientX - rect.left + 14;
-          const oy = e.clientY - rect.top + 14;
-          tip.style.transform = `translate(${ox}px, ${oy}px)`;
-        } else {
-          tip.style.display = "none";
-        }
-      } else {
-        tip.style.display = "none";
-      }
-    };
-    const onPointerLeave = () => {
-      if (hoverKeyRef.current) {
-        for (const m of provinceMatsRef.current.get(hoverKeyRef.current) ?? [])
-          m.emissive.setHex(0x000000);
-        hoverKeyRef.current = null;
-      }
-      tooltipRef.current!.style.display = "none";
-    };
-    renderer.domElement.addEventListener("pointermove", onPointerMove);
-    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
-
-    // Render loop + HTML overlay projection.
     const tmp = new THREE.Vector3();
     let raf = 0;
     const loop = () => {
@@ -200,15 +141,15 @@ export default function SaudiMap(props: SaudiMapProps) {
       const { w, h } = sizeRef.current;
       for (const m of markerElsRef.current) {
         tmp.copy(m.world).project(camera);
-        const inFront = tmp.z < 1;
-        if (!inFront) {
+        if (tmp.z >= 1) {
           m.el.style.display = "none";
           continue;
         }
         m.el.style.display = "";
         const x = (tmp.x * 0.5 + 0.5) * w;
         const y = (-tmp.y * 0.5 + 0.5) * h;
-        m.el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
+        // Anchor the tail tip (25px from the callout's left, at its bottom).
+        m.el.style.transform = `translate(${x}px, ${y}px) translate(-25px, -100%)`;
       }
     };
     loop();
@@ -226,8 +167,6 @@ export default function SaudiMap(props: SaudiMapProps) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      renderer.domElement.removeEventListener("pointermove", onPointerMove);
-      renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       controls.dispose();
       for (const d of disposablesRef.current) d.dispose?.();
       disposablesRef.current = [];
@@ -236,7 +175,7 @@ export default function SaudiMap(props: SaudiMapProps) {
     };
   }, []);
 
-  // ---- update orbit constraints + initial pose ---------------------------
+  // ---- orbit constraints + initial pose ----------------------------------
   useEffect(() => {
     const controls = controlsRef.current;
     const camera = cameraRef.current;
@@ -262,30 +201,23 @@ export default function SaudiMap(props: SaudiMapProps) {
 
     if (!posedRef.current) {
       const phi = Math.min(Math.max(props.tiltDeg, 6), 82) * DEG;
-      camera.position.set(
-        target.x,
-        target.y + R * Math.cos(phi),
-        target.z + R * Math.sin(phi),
-      );
+      camera.position.set(target.x, target.y + R * Math.cos(phi), target.z + R * Math.sin(phi));
       camera.updateProjectionMatrix();
       controls.update();
       posedRef.current = true;
     }
   }, [props.allowSpin, props.tiltDeg, props.extrudeDepth]);
 
-  // ---- build / rebuild map content on data or style change ---------------
+  // ---- build / rebuild map content ---------------------------------------
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
     const renderer = rendererRef.current;
     const maxAniso = (renderer && (renderer as any).__maxAniso) || 1;
 
-    // tear down previous content
     if (contentRef.current) scene.remove(contentRef.current);
     for (const d of disposablesRef.current) d.dispose?.();
     disposablesRef.current = [];
-    provinceMatsRef.current = new Map();
-    pickRef.current = [];
 
     const depth = Math.max(props.extrudeDepth, 0.001);
     const mapGroup = new THREE.Group();
@@ -294,11 +226,11 @@ export default function SaudiMap(props: SaudiMapProps) {
 
     const borderPositions: number[] = [];
 
+    // Flat crisp caps (unlit) for exact light-grey colour; shaded sides for 3D.
     for (const prov of provinces as ProvinceShape[]) {
-      const capHex = props.capColors[prov.key] || props.landColor;
+      const capHex = REGION_FILL[prov.key] || REGION_FILL_DEFAULT;
       const capCol = new THREE.Color(capHex);
-      const sideCol = darken(capCol, 0.62);
-      const caps: any[] = [];
+      const sideCol = darken(capCol, 0.6);
 
       for (const poly of prov.polygons) {
         if (!poly.length || poly[0].length < 4) continue;
@@ -309,16 +241,12 @@ export default function SaudiMap(props: SaudiMapProps) {
             shape.holes.push(new THREE.Path(hole.map(([x, y]) => new THREE.Vector2(x, y))));
         }
         const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-        const capMat = new THREE.MeshLambertMaterial({ color: capCol });
+        const capMat = new THREE.MeshBasicMaterial({ color: capCol });
         const sideMat = new THREE.MeshLambertMaterial({ color: sideCol });
         const mesh = new THREE.Mesh(geo, [capMat, sideMat]);
-        mesh.userData = { key: prov.key, name: prov.name };
         mapGroup.add(mesh);
-        pickRef.current.push(mesh);
-        caps.push(capMat);
         disposablesRef.current.push(geo, capMat, sideMat);
 
-        // border segments along every ring, just above the cap
         for (const ring of poly) {
           for (let i = 0; i < ring.length - 1; i++) {
             borderPositions.push(ring[i][0], ring[i][1], depth + 0.35);
@@ -326,41 +254,43 @@ export default function SaudiMap(props: SaudiMapProps) {
           }
         }
       }
-      provinceMatsRef.current.set(prov.key, caps);
-
-      // region label as a flat plane laid on the slab top
-      if (props.showLabels) {
-        const { canvas, aspect } = makeLabelCanvas(prov.name.toUpperCase(), props.labelColor);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = maxAniso;
-        tex.needsUpdate = true;
-        const labelMat = new THREE.MeshBasicMaterial({
-          map: tex,
-          transparent: true,
-          depthWrite: false,
-        });
-        const hUnits = Math.min(Math.max(6 + 7 * Math.sqrt(prov.areaRatio), 5.5), 11);
-        const plane = new THREE.PlaneGeometry(hUnits * aspect, hUnits);
-        const labelMesh = new THREE.Mesh(plane, labelMat);
-        labelMesh.position.set(prov.centroid[0], prov.centroid[1], depth + 0.6);
-        labelMesh.renderOrder = 3;
-        mapGroup.add(labelMesh);
-        disposablesRef.current.push(plane, labelMat, tex);
-      }
     }
 
     if (borderPositions.length) {
       const bgeo = new THREE.BufferGeometry();
-      bgeo.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(borderPositions, 3),
-      );
-      const bmat = new THREE.LineBasicMaterial({ color: new THREE.Color(props.borderColor) });
+      bgeo.setAttribute("position", new THREE.Float32BufferAttribute(borderPositions, 3));
+      const bmat = new THREE.LineBasicMaterial({ color: new THREE.Color(BORDER_COLOR) });
       const lines = new THREE.LineSegments(bgeo, bmat);
       lines.renderOrder = 2;
       mapGroup.add(lines);
       disposablesRef.current.push(bgeo, bmat);
+    }
+
+    // Labels: region centroids + extra place labels, laid flat on the slab.
+    const addLabel = (text: string, x: number, y: number, hUnits: number) => {
+      const { canvas, aspect } = makeLabelCanvas(text.toUpperCase(), LABEL_COLOR);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = maxAniso;
+      tex.needsUpdate = true;
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+      const plane = new THREE.PlaneGeometry(hUnits * aspect, hUnits);
+      const m = new THREE.Mesh(plane, mat);
+      m.position.set(x, y, depth + 0.6);
+      m.renderOrder = 3;
+      mapGroup.add(m);
+      disposablesRef.current.push(plane, mat, tex);
+    };
+
+    if (props.showLabels) {
+      for (const prov of provinces as ProvinceShape[]) {
+        const hUnits = Math.min(Math.max(6 + 7 * Math.sqrt(prov.areaRatio), 5.5), 11);
+        addLabel(prov.name, prov.centroid[0], prov.centroid[1], hUnits);
+      }
+      for (const lbl of EXTRA_LABELS) {
+        const p = projectLngLat(lbl.lng, lbl.lat);
+        if (p) addLabel(lbl.text, p[0], p[1], 8 * (lbl.scale ?? 1));
+      }
     }
 
     scene.add(mapGroup);
@@ -389,14 +319,8 @@ export default function SaudiMap(props: SaudiMapProps) {
       box.appendChild(label);
       const tail = document.createElement("div");
       tail.className = "sa-callout__tail";
-      const stem = document.createElement("div");
-      stem.className = "sa-callout__stem";
-      const pin = document.createElement("div");
-      pin.className = "sa-callout__pin";
       el.appendChild(box);
       el.appendChild(tail);
-      el.appendChild(stem);
-      el.appendChild(pin);
 
       box.addEventListener("mouseenter", () => {
         const tip = tooltipRef.current!;
@@ -404,9 +328,7 @@ export default function SaudiMap(props: SaudiMapProps) {
         tip.style.display = "block";
         const rect = mountRef.current!.getBoundingClientRect();
         const brect = box.getBoundingClientRect();
-        tip.style.transform = `translate(${brect.left - rect.left}px, ${
-          brect.bottom - rect.top + 8
-        }px)`;
+        tip.style.transform = `translate(${brect.left - rect.left}px, ${brect.bottom - rect.top + 8}px)`;
       });
       box.addEventListener("mouseleave", () => {
         tooltipRef.current!.style.display = "none";
@@ -416,16 +338,7 @@ export default function SaudiMap(props: SaudiMapProps) {
       els.push({ el, world });
     }
     markerElsRef.current = els;
-  }, [
-    props.capColors,
-    props.landColor,
-    props.borderColor,
-    props.background,
-    props.labelColor,
-    props.showLabels,
-    props.extrudeDepth,
-    props.sites,
-  ]);
+  }, [props.background, props.showLabels, props.extrudeDepth, props.sites]);
 
   return (
     <div className="sa-map" ref={mountRef}>

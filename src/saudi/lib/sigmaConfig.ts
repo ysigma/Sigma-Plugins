@@ -2,47 +2,13 @@
  * Editor-panel controls for the Saudi Arabia regions map plugin. Each `name`
  * becomes a key on the object returned by `useConfig()`.
  *
- * Two independent data sources:
- *   • Regions  – colors the 13 ADM1 regions by a status/tier column.
- *   • Sites    – drops labelled callout pins (lat/lng) with a healthy/down state.
+ * The map regions are fixed (styled to match the reference design); the only
+ * data binding is the **Sites** source that drops labelled callout pins.
  */
 import { client } from "@sigmacomputing/plugin";
 
 export function configureEditorPanel(): void {
   client.config.configureEditorPanel([
-    // ---- Regions (choropleth over the 13 provinces) -----------------------
-    { name: "regionSource", type: "element", label: "Regions: data source" },
-    {
-      name: "region",
-      type: "column",
-      source: "regionSource",
-      allowMultiple: false,
-      allowedTypes: ["text", "variant"],
-      label: "Region name (e.g. Riyadh, Makkah)",
-    },
-    {
-      name: "regionTier",
-      type: "column",
-      source: "regionSource",
-      allowMultiple: false,
-      allowedTypes: ["text", "integer", "number", "boolean", "variant"],
-      label: "Color by (status / tier, optional)",
-    },
-    {
-      name: "regionTierOrder",
-      type: "text",
-      placeholder: "e.g. Down, Degraded, Healthy",
-      label: "Tier order / labels (first → last)",
-    },
-    {
-      name: "regionMetric",
-      type: "column",
-      source: "regionSource",
-      allowMultiple: false,
-      allowedTypes: ["number", "integer"],
-      label: "Region measure (tooltip only, optional)",
-    },
-
     // ---- Sites (callout pins) --------------------------------------------
     { name: "siteSource", type: "element", label: "Sites: data source" },
     {
@@ -78,17 +44,8 @@ export function configureEditorPanel(): void {
       label: "Site status (healthy → ✓ / down → ✕)",
     },
 
-    // ---- Tier colors (mapped positionally to the tier order) --------------
-    { name: "color1", type: "color", label: "Color 1 (first tier)" },
-    { name: "color2", type: "color", label: "Color 2" },
-    { name: "color3", type: "color", label: "Color 3" },
-    { name: "color4", type: "color", label: "Color 4" },
-    { name: "color5", type: "color", label: "Color 5 (last tier)" },
-
     // ---- Appearance -------------------------------------------------------
-    { name: "landColor", type: "color", label: "Base region color" },
     { name: "backgroundColor", type: "color", label: "Background color" },
-    { name: "borderColor", type: "color", label: "Region border color" },
     {
       name: "extrude",
       type: "dropdown",
@@ -100,7 +57,7 @@ export function configureEditorPanel(): void {
       name: "tilt",
       type: "dropdown",
       values: ["Top-down", "Low", "Medium", "High"],
-      defaultValue: "Medium",
+      defaultValue: "Low",
       label: "Initial tilt",
     },
     {
@@ -114,12 +71,6 @@ export function configureEditorPanel(): void {
       type: "toggle",
       defaultValue: true,
       label: "Show region labels",
-    },
-    {
-      name: "showLegend",
-      type: "toggle",
-      defaultValue: false,
-      label: "Show legend",
     },
   ]);
 }
