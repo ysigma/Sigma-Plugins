@@ -237,6 +237,19 @@ body,
   color: #9aa3b2;
   font-size: 11.5px;
 }
+.tam-notice.loading {
+  color: #ffb888;
+  animation: tam-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tam-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 
 /* ---------- Empty state ---------- */
 .tam-empty {

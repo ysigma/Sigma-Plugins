@@ -157,9 +157,8 @@ export default function App() {
           />
           {showLegend && <Legend entries={legendEntries} />}
           {model.totalRows === 0 ? (
-            <div className="tam-notice">
-              No rows to map yet. Check that the latitude / longitude columns hold
-              numeric coordinates.
+            <div className="tam-notice loading">
+              Loading global threat vectors, please wait...
             </div>
           ) : (
             skipped > 0 && (
