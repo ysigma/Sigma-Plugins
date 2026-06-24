@@ -12,9 +12,18 @@ declare module "world-countries" {
   export default countries;
 }
 
-// The TopoJSON file is large; type it loosely so tsc doesn't try to infer a
-// giant literal type for it.
+// The TopoJSON files are large; type them loosely so tsc doesn't try to infer
+// a giant literal type for them.
 declare module "world-atlas/countries-110m.json" {
+  const topology: {
+    type: "Topology";
+    objects: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  export default topology;
+}
+
+declare module "world-atlas/countries-50m.json" {
   const topology: {
     type: "Topology";
     objects: Record<string, unknown>;

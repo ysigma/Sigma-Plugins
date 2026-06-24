@@ -192,6 +192,63 @@ latest reading, **including empty buckets** so real gaps stay visible (capped at
 bucket the readings are classified to `up` / `degraded` / `down` and combined by
 the chosen aggregation; the resulting status picks the square color.
 
+## Global Threat-Origin Arc Map
+
+An interactive, animated **attack-flow map** (`arc.html`). Each row's source
+coordinates spawn a glowing orange **arc** that flows — with a moving arrowhead
+"comet" — toward a destination (every arc converges on Riyadh, Saudi Arabia by
+default). Origin locations **pulsate**, and the destination shows a stronger
+convergence pulse. Built on [Leaflet](https://leafletjs.com/) for pan / zoom over
+a self-contained dark vector basemap, with a `requestAnimationFrame` canvas
+overlay for the flow animation.
+
+**Hosted at:** `https://ysigma.github.io/Sigma-Plugins/arc.html`
+
+### Features
+
+- 🌐 **Animated flow arcs** from each origin to the destination, with a bright
+  arrowhead that travels the arc and loops — drawn over a persistent line.
+- 📡 **Pulsating origins** and a **convergence pulse** at the destination.
+- 🎨 **Orange theme with severity accents** — Critical / High routes glow
+  brighter, draw thicker and pulse faster (a volume-weighted *representative*
+  severity per route); turn accents off for a uniform-orange look.
+- 🖱️ **Interactive** — smooth Leaflet pan / zoom (+/- control) and rich hover
+  tooltips (origin, attack types, severity breakdown, target assets, volume).
+- 🧮 **Auto-aggregation** — rows sharing a source/destination are merged
+  (volume summed) so the animation stays smooth on large datasets.
+- 🗺️ **Self-contained** — bundles Natural Earth 1:50m geometry; **no external
+  tile/network calls** at runtime, so it renders reliably inside Sigma.
+- ⚙️ **Configurable** — arc/land/border/label colors, flow speed, labels,
+  legend, and a default destination (name + lat/lon) are editor-panel options.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the rows. |
+| **Source latitude / longitude** | column | Origin coordinates (required). |
+| **Source label** | column | Origin country / city for tooltips. |
+| **Destination latitude / longitude** | column | Optional; omit to use the default destination for every arc. |
+| **Destination label** | column | Optional destination name for tooltips. |
+| **Severity** | column | Critical → Low; drives the orange accents. |
+| **Attack volume / count** | column | Scales arc thickness; summed per route. |
+| **Attack type / Target asset** | column | Shown in tooltips. |
+| **Default destination name / lat,lon** | text | Fallback destination (defaults to `Saudi Arabia` / `24.7136, 46.6753`). |
+| **Arc / Ocean / Land / Border / Label color** | color | Theme overrides. |
+| **Flow speed** | dropdown | Slow / Medium / Fast. |
+| **Accent arcs by severity** | toggle | Brighter/thicker/faster for higher-severity routes. |
+| **Show country labels / legend** | toggle | Map labels and the severity legend. |
+| **Auto-fit to data** | toggle | Frame the map to the bound points on load. |
+
+### How the flow & severity work
+
+Rows are aggregated into one arc per source→destination route (and one pulse per
+origin), summing the attack volume and keeping a full per-severity breakdown for
+the tooltip. A route's accent severity is its **volume-weighted mean severity**
+rounded to the nearest bucket, so a mostly-medium route reads cooler than a
+mostly-critical one. Arc width scales with volume; brightness, flow speed and
+pulse size scale with the accent severity — all within the orange family.
+
 ## Local development
 
 ```bash

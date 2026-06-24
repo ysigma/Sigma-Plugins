@@ -1,0 +1,311 @@
+:root {
+  --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+  background: #11141b;
+}
+
+.tam-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: #e9eef6;
+}
+
+.tam-map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Leaflet container: dark ocean, no focus ring. */
+.tam-map .leaflet-container {
+  background: #11141b;
+  font-family: var(--font);
+  outline: none;
+}
+.tam-map .leaflet-container:focus,
+.tam-map .leaflet-container:focus-visible {
+  outline: none;
+}
+
+/* Dark zoom control to match the theme. */
+.tam-map .leaflet-bar {
+  border: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+.tam-map .leaflet-control-zoom a {
+  background: #1b1f29;
+  color: #e7ecf4;
+  border-bottom: 1px solid #2c3340;
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  font-size: 18px;
+}
+.tam-map .leaflet-control-zoom a:first-child {
+  border-radius: 6px 6px 0 0;
+}
+.tam-map .leaflet-control-zoom a:last-child {
+  border-radius: 0 0 6px 6px;
+  border-bottom: none;
+}
+.tam-map .leaflet-control-zoom a:hover {
+  background: #262c38;
+  color: #fff;
+}
+.tam-map .leaflet-control-zoom a.leaflet-disabled {
+  background: #15181f;
+  color: #4a515e;
+}
+
+/* Subtle attribution. */
+.tam-map .leaflet-control-attribution {
+  background: rgba(13, 16, 22, 0.62);
+  color: #707a8a;
+  font-size: 10px;
+  padding: 1px 6px;
+}
+.tam-map .leaflet-control-attribution a {
+  color: #97a1b1;
+}
+
+/* ---------- Hover tooltip ---------- */
+.tam-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 700;
+  pointer-events: none;
+  min-width: 168px;
+  max-width: 270px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(18, 22, 30, 0.94);
+  color: #eaf0f8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  will-change: transform;
+}
+
+.tam-tt-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 2px;
+  color: #fff;
+}
+.tam-arrow {
+  color: #ff7a3d;
+  font-weight: 700;
+}
+.tam-tt-sub {
+  color: #aeb6c4;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.tam-tt-sec {
+  margin-top: 6px;
+  margin-bottom: 2px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #8b94a3;
+}
+.tam-tt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tam-tt-row > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tam-tt-row b {
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+/* Severity / target dots (brighter = higher severity). */
+.tam-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.tam-dot.critical {
+  background: #ffd2a1;
+}
+.tam-dot.high {
+  background: #ff9a52;
+}
+.tam-dot.medium {
+  background: #ff6a2b;
+}
+.tam-dot.low {
+  background: #c9571f;
+}
+.tam-dot.unknown {
+  background: #7f6a55;
+}
+.tam-dot.target {
+  background: #ffe0b0;
+  box-shadow: 0 0 6px rgba(255, 180, 110, 0.9);
+}
+
+/* ---------- Legend ---------- */
+.tam-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  z-index: 680;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(15, 18, 25, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.tam-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #cdd4e0;
+}
+.tam-legend-dash {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.tam-legend-target {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: 0 0 7px rgba(255, 180, 110, 0.9);
+}
+
+/* ---------- Notices ---------- */
+.tam-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 680;
+  max-width: 78%;
+  text-align: center;
+  padding: 9px 15px;
+  border-radius: 9px;
+  background: rgba(20, 24, 32, 0.86);
+  color: #dde6f2;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.tam-notice.subtle {
+  background: rgba(20, 24, 32, 0.62);
+  color: #9aa3b2;
+  font-size: 11.5px;
+}
+
+/* ---------- Empty state ---------- */
+.tam-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+}
+.tam-empty-card {
+  max-width: 440px;
+  text-align: center;
+  padding: 30px 34px;
+  border-radius: 16px;
+  background: rgba(22, 27, 36, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tam-empty-icon {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.tam-empty-card h2 {
+  margin: 6px 0 10px;
+  font-size: 19px;
+  color: #fff;
+}
+.tam-empty-card p {
+  margin: 0 0 14px;
+  color: #aeb6c4;
+  font-size: 13.5px;
+}
+.tam-empty-steps {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  text-align: left;
+  display: inline-block;
+}
+.tam-empty-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0;
+  color: #c6cdd9;
+  font-size: 13.5px;
+}
+.tam-empty-steps li.done {
+  color: #6fe0a0;
+}
+.tam-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: rgba(255, 122, 61, 0.16);
+  color: #ff7a3d;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tam-empty-steps li.done .tam-check {
+  background: rgba(111, 224, 160, 0.16);
+  color: #6fe0a0;
+}
+.tam-empty-hint {
+  margin: 10px 0 0 !important;
+  font-size: 12px !important;
+  color: #8b94a3 !important;
+}

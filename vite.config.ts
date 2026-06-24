@@ -27,11 +27,13 @@ export default defineConfig({
       //   saudi.html  -> Saudi Arabia 3D regions map  ( /saudi.html )
       //   table.html  -> Mini bar-line table          ( /table.html )
       //   status.html -> Service status timeline      ( /status.html )
+      //   arc.html    -> Global threat-origin arc map ( /arc.html )
       input: {
         main: resolve(__dirname, "index.html"),
         saudi: resolve(__dirname, "saudi.html"),
         table: resolve(__dirname, "table.html"),
         status: resolve(__dirname, "status.html"),
+        arc: resolve(__dirname, "arc.html"),
       },
     },
   },
