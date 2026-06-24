@@ -82,13 +82,17 @@ export default function SegmentedBar({
   return (
     <div className="sbm-meter" style={meterStyle}>
       <div className="sbm-bar" style={barStyle}>
-        {segments.map((seg, i) => (
-          <div
-            key={i}
-            className="sbm-seg"
-            style={{ width: `${seg.width}%`, background: seg.color }}
-          />
-        ))}
+        {/* Rounded, clipped track so BOTH ends of the bar curve uniformly,
+            regardless of segment widths or the overlaid ticks/needle. */}
+        <div className="sbm-bar-track">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className="sbm-seg"
+              style={{ width: `${seg.width}%`, background: seg.color }}
+            />
+          ))}
+        </div>
 
         {/* Threshold tick marks on the bar's top edge. */}
         {showScale &&
