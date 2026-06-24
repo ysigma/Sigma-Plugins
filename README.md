@@ -1,10 +1,25 @@
-# Sigma 3D Globe Plugin
+# Sigma Custom Plugins
 
-An interactive, rotatable **3D globe** custom plugin for
-[Sigma](https://www.sigmacomputing.com/). Drop a **country** dimension and a
-**measure** onto it, and the globe paints each country as a choropleth (discrete
-color buckets). Hover any country to get a dynamic popup showing the country name
-and its value.
+A small collection of custom [Sigma](https://www.sigmacomputing.com/) plugins,
+built and published together as a single multi-page static site. **Each plugin
+has its own URL** — register whichever ones you need with your Sigma org.
+
+| Plugin | Live URL | What it does |
+| --- | --- | --- |
+| **3D Globe** | `https://ysigma.github.io/Sigma-Plugins/` | Rotatable globe choropleth colored by a tier/measure, with hover tooltips. |
+| **Segmented Bar Meter** | `https://ysigma.github.io/Sigma-Plugins/segmented-bar/` | A 4-section colored threshold bar with a value marker positioned across a min→max scale. |
+
+> Open either URL directly in a browser to see a self-contained **demo** (sample
+> data); embed it in Sigma for live data.
+
+---
+
+## 3D Globe
+
+An interactive, rotatable **3D globe** custom plugin for Sigma. Drop a
+**country** dimension and a **measure** onto it, and the globe paints each
+country as a choropleth (discrete color buckets). Hover any country to get a
+dynamic popup showing the country name and its value.
 
 ## Features
 
@@ -55,11 +70,49 @@ In practice Sigma usually aggregates the measure per dimension value already, so
 you'll have one row per country. Rows whose country can't be matched are counted
 and surfaced in a small on-screen notice to aid debugging.
 
+## Segmented Bar Meter
+
+A horizontal gauge: a bar split into **four colored sections** with a **value
+marker** (needle + value pill) that sits at the right spot across a numeric
+scale. You define the **min and max** of the whole bar, the **three thresholds**
+that split it into sections, and the **color** of each section. Great for
+"current level vs. thresholds" displays (risk/threat level, SLA, score, etc.).
+
+- 🎨 **4 section colors** — each picked from Sigma's color palette (sensible
+  green → red defaults if left blank).
+- 📐 **Custom thresholds** — type the three cut-points; sections can be unequal
+  widths. Leave a threshold blank to fall back to an equal quarter of the range.
+- 🎯 **Value marker** — a single measure value drives a needle + value pill,
+  clamped to the bar ends if it falls outside the range. The needle's core takes
+  the color of the section it lands in (or a fixed marker color you choose).
+- 🔢 **Scale & threshold labels**, optional **title**, configurable bar
+  thickness, decimal places, marker/background/text colors.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Value (measure)** | column | Numeric measure; the first value positions the marker. |
+| **Scale minimum / maximum** | text | The numeric range of the whole bar (default `0` / `100`). |
+| **Threshold 1 / 2 / 3** | text | Section boundaries. Blank → ¼ / ½ / ¾ of the range. |
+| **Section 1–4 color** | color | Color for each of the four sections (left → right). |
+| **Title** | text | Optional title shown above the bar. |
+| **Show value label** | toggle | Show/hide the value pill on the marker. |
+| **Show scale & threshold labels** | toggle | Show/hide min/threshold/max ticks and numbers. |
+| **Decimal places** | dropdown | `Auto` or a fixed number of decimals. |
+| **Bar thickness (px)** | dropdown | Height of the bar. |
+| **Marker color** | color | Overrides the marker core color (blank = section color). |
+| **Background / Text color** | color | Plugin background and text color (auto-contrast by default). |
+
+> URL preview params (when opened standalone) let you tweak the demo:
+> `?value=72&min=0&max=100&t=31,57,79&colors=3aa655,c9b13a,e08a3c,cf4436&title=Score&light=1`.
+
 ## Local development
 
 ```bash
 npm install
-npm run dev        # serves on http://localhost:3000
+npm run dev        # serves on http://localhost:3000  (3D Globe at /, bar at /segmented-bar/)
 ```
 
 > The dev server runs on port **3000** to match Sigma's **Plugin Dev Playground**
@@ -127,18 +180,26 @@ Netlify serves the plugin over HTTPS (required for Sigma). The `base` is set to
 
 ## Project structure
 
+This is a **multi-page Vite build**: each plugin is its own HTML entry point and
+is emitted to its own folder in `dist/`, so each gets a distinct URL.
+
 ```
-src/
+index.html              # 3D Globe entry (served at /)
+src/                     # 3D Globe source
   main.tsx              # entry: registers editor panel, mounts <App/>
   App.tsx               # reads Sigma config/data, builds the country->value map
-  components/
-    GlobeView.tsx       # the react-globe.gl globe + hover handling
-    Legend.tsx          # stepped bucket legend
-    EmptyState.tsx      # setup instructions until configured
-  lib/
-    sigmaConfig.ts      # editor panel definition
-    countries.ts        # auto-detect country -> ISO numeric matching
-    geo.ts              # TopoJSON -> GeoJSON features + label centroids
-    color.ts            # discrete bucket color scale + legend
-    format.ts           # number formatting
+  components/           # GlobeView, Legend, EmptyState
+  lib/                  # sigmaConfig, countries, geo, color, format
+
+segmented-bar/           # Segmented Bar Meter (served at /segmented-bar/)
+  index.html            # entry HTML for this plugin
+  main.tsx              # registers editor panel, mounts <App/>
+  App.tsx               # reads Sigma config/data; scale, thresholds, value
+  SegmentedBar.tsx      # the colored bar + value marker
+  EmptyState.tsx        # setup instructions until configured
+  sigmaConfig.ts        # editor panel definition
+  format.ts             # number formatting
+  styles.css            # plugin styles
 ```
+
+Both entry points are declared in `vite.config.ts` (`build.rollupOptions.input`).
