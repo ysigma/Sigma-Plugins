@@ -87,6 +87,13 @@ export function configureEditorPanel(): void {
       label: "Label column width (px)",
     },
     {
+      name: "rowHeight",
+      type: "dropdown",
+      values: ["12", "14", "16", "18", "22", "26", "30"],
+      defaultValue: "18",
+      label: "Row height (px)",
+    },
+    {
       name: "linkifyUrls",
       type: "toggle",
       defaultValue: true,
