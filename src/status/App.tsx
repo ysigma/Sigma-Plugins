@@ -94,6 +94,8 @@ export default function App() {
 
   const labelWidth =
     parseInt(typeof config.labelWidth === "string" ? config.labelWidth : "320", 10) || 320;
+  const rowHeight =
+    parseInt(typeof config.rowHeight === "string" ? config.rowHeight : "18", 10) || 18;
   const linkify = config.linkifyUrls !== false;
   const showLegend = config.showLegend === true;
 
@@ -219,6 +221,7 @@ export default function App() {
     ["--sst-bg" as string]: background,
     ["--sst-text" as string]: textColor,
     ["--sst-label-w" as string]: `${labelWidth}px`,
+    ["--sst-row-h" as string]: `${rowHeight}px`,
   };
 
   const configured =
