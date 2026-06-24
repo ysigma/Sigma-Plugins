@@ -21,16 +21,7 @@ import "leaflet/dist/leaflet.css";
 import { geoMercator, geoPath } from "d3-geo";
 import { countryCollection } from "../lib/geo";
 import { COUNTRY_LABELS } from "../lib/labels";
-import {
-  ACCENTS,
-  NEUTRAL_ACCENT,
-  accentColor,
-  hexToRgb,
-  mix,
-  rgba,
-  type Accent,
-  type RGB,
-} from "../lib/theme";
+import { accentColor, hexToRgb, mix, rgba, type RGB } from "../lib/theme";
 import type { Arc, DestPoint, OriginPoint, ThreatModel } from "../lib/model";
 
 export interface ThreatMapColors {
@@ -45,7 +36,6 @@ export interface ThreatMapProps {
   model: ThreatModel;
   colors: ThreatMapColors;
   flowSpeedMult: number;
-  severityAccents: boolean;
   showLabels: boolean;
   autoFit: boolean;
 }
@@ -54,7 +44,7 @@ export interface ThreatMapProps {
 const BASE_FLOW_RATE = 0.16; // arc traversals per second at speed ×1
 const PULSE_RATE = 0.5; // origin ring cycles per second
 const DEST_PULSE_RATE = 0.72;
-const BASE_CORE_WIDTH = 1.35; // px (before severity + volume scaling)
+const ARC_WIDTH = 1.8; // uniform core line width for every arc
 const COMET_TAIL = 0.14; // comet length as a fraction of the arc
 const ARC_SAMPLES = 34;
 const HOTWHITE: RGB = { r: 255, g: 240, b: 214 };
@@ -161,7 +151,7 @@ export default function ThreatMap(props: ThreatMapProps) {
     const mount = mountRef.current!;
     const map = L.map(mount, {
       zoomControl: true,
-      attributionControl: true,
+      attributionControl: false,
       worldCopyJump: false,
       zoomAnimation: false, // keep basemap + overlay locked together
       markerZoomAnimation: false,
@@ -298,38 +288,32 @@ export default function ThreatMap(props: ThreatMapProps) {
     if (map) map.getContainer().style.background = props.colors.background;
   }, [props.colors.background]);
 
-  /* ---- precompute per-arc / per-origin render data ---- */
+  /* ---- precompute per-arc / per-origin render data (uniform styling) ---- */
   useEffect(() => {
+    // Every arc and origin uses the same rich orange, the same width and the
+    // same flow speed — only the start phase is staggered so the arrowheads
+    // aren't all in lockstep.
     const base = hexToRgb(props.colors.arc);
-    const accentFor = (sev: keyof typeof ACCENTS): Accent =>
-      props.severityAccents ? ACCENTS[sev] : NEUTRAL_ACCENT;
+    const core = base;
+    const head = mix(accentColor(base, 0.42), HOTWHITE, 0.28);
 
-    const maxArc = Math.max(1, ...props.model.arcs.map((a) => a.count));
-    rArcsRef.current = props.model.arcs.map((a) => {
-      const acc = accentFor(a.severity);
-      const norm = Math.sqrt(clamp(a.count / maxArc, 0, 1));
-      const coreW = clamp(BASE_CORE_WIDTH * acc.width * (0.7 + 1.25 * norm), 0.85, 5.5);
-      return {
-        src: a,
-        core: accentColor(base, acc.bright),
-        head: mix(accentColor(base, Math.min(acc.bright + 0.32, 1)), HOTWHITE, 0.25),
-        coreW,
-        speed: acc.speed,
-      };
-    });
+    rArcsRef.current = props.model.arcs.map((a) => ({
+      src: a,
+      core,
+      head,
+      coreW: ARC_WIDTH,
+      speed: 1,
+    }));
 
-    rOriginsRef.current = props.model.origins.map((o) => {
-      const acc = accentFor(o.severity);
-      return {
-        src: o,
-        core: accentColor(base, acc.bright),
-        head: mix(accentColor(base, Math.min(acc.bright + 0.3, 1)), HOTWHITE, 0.3),
-        pulse: acc.pulse,
-      };
-    });
+    rOriginsRef.current = props.model.origins.map((o) => ({
+      src: o,
+      core,
+      head,
+      pulse: 1,
+    }));
 
     destColorRef.current = mix(accentColor(base, 0.5), HOTWHITE, 0.18);
-  }, [props.model, props.colors.arc, props.severityAccents]);
+  }, [props.model, props.colors.arc]);
 
   /* ---- basemap: countries + labels via d3-geo, redrawn on view change ---- */
   function drawBasemap() {

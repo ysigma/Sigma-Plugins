@@ -124,12 +124,6 @@ export function configureEditorPanel(): void {
       label: "Flow speed",
     },
     {
-      name: "severityAccents",
-      type: "toggle",
-      defaultValue: true,
-      label: "Accent arcs by severity",
-    },
-    {
       name: "showLabels",
       type: "toggle",
       defaultValue: true,

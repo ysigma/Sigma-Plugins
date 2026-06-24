@@ -4,7 +4,7 @@ import ThreatMap, { type ThreatMapColors } from "./components/ThreatMap";
 import Legend, { type LegendEntry } from "./components/Legend";
 import EmptyState from "./components/EmptyState";
 import { buildModel } from "./lib/model";
-import { ACCENTS, accentColor, hexToRgb, rgba, SEVERITY_LABEL } from "./lib/theme";
+import { accentColor, hexToRgb, rgba } from "./lib/theme";
 
 function firstId(value: unknown): string | undefined {
   if (Array.isArray(value)) return typeof value[0] === "string" ? value[0] : undefined;
@@ -64,7 +64,6 @@ export default function App() {
   };
 
   const flowSpeedMult = SPEED[str(config.flowSpeed)] ?? 1;
-  const severityAccents = config.severityAccents !== false;
   const showLabels = config.showLabels !== false;
   const showLegend = config.showLegend !== false;
   const autoFit = config.autoFit !== false;
@@ -126,17 +125,11 @@ export default function App() {
 
   const legendEntries = useMemo<LegendEntry[]>(() => {
     const base = hexToRgb(colors.arc);
-    const out: LegendEntry[] = [];
-    if (severityAccents) {
-      (["critical", "high", "medium", "low"] as const).forEach((k) => {
-        out.push({ label: SEVERITY_LABEL[k], color: rgba(accentColor(base, ACCENTS[k].bright), 1) });
-      });
-    } else {
-      out.push({ label: "Attack flow", color: rgba(base, 1) });
-    }
-    out.push({ label: defaultDest.label, color: rgba(accentColor(base, 0.5), 1), target: true });
-    return out;
-  }, [colors.arc, severityAccents, defaultDest.label]);
+    return [
+      { label: "Attack flow", color: rgba(base, 1) },
+      { label: defaultDest.label, color: rgba(accentColor(base, 0.5), 1), target: true },
+    ];
+  }, [colors.arc, defaultDest.label]);
 
   const configured = !!sourceId && !!srcLatId && !!srcLonId;
   const steps = [
@@ -159,7 +152,6 @@ export default function App() {
             model={model}
             colors={colors}
             flowSpeedMult={flowSpeedMult}
-            severityAccents={severityAccents}
             showLabels={showLabels}
             autoFit={autoFit}
           />
