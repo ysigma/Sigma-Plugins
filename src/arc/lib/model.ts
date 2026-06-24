@@ -207,7 +207,7 @@ function representativeSeverity(bySev: Map<SeverityKey, number>): {
 function severityRows(bySev: Map<SeverityKey, number>): string {
   const rows = SEVERITY_ORDER.filter((k) => (bySev.get(k) ?? 0) > 0).map(
     (k) =>
-      `<div class="tam-tt-row"><span class="tam-dot ${k}"></span>${SEVERITY_LABEL[k]}<b>${formatInt(
+      `<div class="tam-tt-row"><span><span class="tam-dot ${k}"></span>${SEVERITY_LABEL[k]}</span><b>${formatInt(
         bySev.get(k)!,
       )}</b></div>`,
   );

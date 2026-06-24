@@ -1,13 +1,15 @@
 /**
- * The interactive map. Leaflet draws the dark vector basemap and handles
- * pan / zoom (and the +/- control); a transparent <canvas> sits on top and is
- * redrawn every animation frame, reprojected from the current map view, to
- * render:
- *   - persistent orange arcs from each origin to the destination,
- *   - a bright arrowhead "comet" that flows along each arc and loops,
- *   - pulsating rings at every origin,
- *   - a stronger convergence pulse at the destination,
- *   - curated country labels.
+ * The interactive map. Leaflet handles pan / zoom (and the +/- control); two
+ * stacked <canvas> layers sit on top:
+ *
+ *   1. a BASEMAP canvas — dark countries + labels, drawn with d3-geo's geoPath
+ *      (calibrated exactly to Leaflet's Web-Mercator view). d3 clips at the
+ *      antimeridian, so dateline-crossing countries render correctly instead of
+ *      smearing a fill band across the map. Redrawn only when the view changes.
+ *
+ *   2. an ANIMATION canvas — arcs, flowing arrowhead comets, pulsating origins
+ *      and the destination convergence pulse. Redrawn every frame, reprojected
+ *      from the live Leaflet view.
  *
  * Severity only shifts the orange brighter/dimmer and scales width / speed /
  * pulse, so the map keeps its uniform-orange look while Critical traffic reads
@@ -16,7 +18,8 @@
 import { useEffect, useRef } from "react";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { worldGeo } from "../lib/geo";
+import { geoMercator, geoPath } from "d3-geo";
+import { countryCollection } from "../lib/geo";
 import { COUNTRY_LABELS } from "../lib/labels";
 import {
   ACCENTS,
@@ -109,13 +112,15 @@ export default function ThreatMap(props: ThreatMapProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const mapRef = useRef<L.Map | null>(null);
-  const geoRef = useRef<L.GeoJSON | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const animCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const sizeRef = useRef({ w: 1, h: 1 });
   const rafRef = useRef(0);
   const startRef = useRef(0);
   const fitSigRef = useRef("");
+  const baseSigRef = useRef("");
 
   // Precomputed render data + live props (read inside the rAF loop).
   const propsRef = useRef(props);
@@ -151,7 +156,7 @@ export default function ThreatMap(props: ThreatMapProps) {
     return cv;
   }
 
-  /* ---- one-time: build the map, canvas overlay, loop, handlers ---- */
+  /* ---- one-time: build the map, canvas overlays, loop, handlers ---- */
   useEffect(() => {
     const mount = mountRef.current!;
     const map = L.map(mount, {
@@ -160,7 +165,6 @@ export default function ThreatMap(props: ThreatMapProps) {
       worldCopyJump: false,
       zoomAnimation: false, // keep basemap + overlay locked together
       markerZoomAnimation: false,
-      preferCanvas: true,
       minZoom: 1,
       maxZoom: 7,
       maxBounds: [
@@ -172,39 +176,37 @@ export default function ThreatMap(props: ThreatMapProps) {
       zoom: 2,
     });
     mapRef.current = map;
+    map.getContainer().style.background = propsRef.current.colors.background;
 
-    const geo = L.geoJSON(worldGeo, {
-      interactive: false,
-      style: () => ({
-        color: propsRef.current.colors.border,
-        weight: 0.6,
-        fillColor: propsRef.current.colors.land,
-        fillOpacity: 1,
-        opacity: 1,
-      }),
-    }).addTo(map);
-    geoRef.current = geo;
-
-    // Transparent overlay canvas above the basemap, below the controls.
-    const canvas = document.createElement("canvas");
-    canvas.className = "tam-canvas";
-    canvas.style.cssText =
-      "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:650;";
-    mount.appendChild(canvas);
-    canvasRef.current = canvas;
-    ctxRef.current = canvas.getContext("2d");
+    const makeCanvas = (z: number): [HTMLCanvasElement, CanvasRenderingContext2D] => {
+      const cv = document.createElement("canvas");
+      cv.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:${z};`;
+      mount.appendChild(cv);
+      return [cv, cv.getContext("2d")!];
+    };
+    // Basemap below, animation above (both under Leaflet's controls).
+    const [baseCanvas, baseCtx] = makeCanvas(300);
+    const [animCanvas, animCtx] = makeCanvas(650);
+    baseCanvasRef.current = baseCanvas;
+    baseCtxRef.current = baseCtx;
+    animCanvasRef.current = animCanvas;
+    animCtxRef.current = animCtx;
 
     const resize = () => {
       const rect = mount.getBoundingClientRect();
       const w = Math.max(1, rect.width);
       const h = Math.max(1, rect.height);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = w + "px";
-      canvas.style.height = h + "px";
-      const ctx = ctxRef.current!;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const [cv, ctx] of [
+        [baseCanvas, baseCtx],
+        [animCanvas, animCtx],
+      ] as const) {
+        cv.width = Math.round(w * dpr);
+        cv.height = Math.round(h * dpr);
+        cv.style.width = w + "px";
+        cv.style.height = h + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
       sizeRef.current = { w, h };
     };
     resize();
@@ -218,7 +220,8 @@ export default function ThreatMap(props: ThreatMapProps) {
     startRef.current = performance.now();
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop);
-      draw((performance.now() - startRef.current) / 1000);
+      drawAnimation((performance.now() - startRef.current) / 1000);
+      syncBasemap();
     };
     rafRef.current = requestAnimationFrame(loop);
 
@@ -289,20 +292,11 @@ export default function ThreatMap(props: ThreatMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---- restyle basemap when colours change ---- */
+  /* ---- keep the container (ocean) background in sync ---- */
   useEffect(() => {
     const map = mapRef.current;
-    const geo = geoRef.current;
-    if (!map || !geo) return;
-    map.getContainer().style.background = props.colors.background;
-    geo.setStyle({
-      color: props.colors.border,
-      weight: 0.6,
-      fillColor: props.colors.land,
-      fillOpacity: 1,
-      opacity: 1,
-    });
-  }, [props.colors.background, props.colors.land, props.colors.border]);
+    if (map) map.getContainer().style.background = props.colors.background;
+  }, [props.colors.background]);
 
   /* ---- precompute per-arc / per-origin render data ---- */
   useEffect(() => {
@@ -337,17 +331,79 @@ export default function ThreatMap(props: ThreatMapProps) {
     destColorRef.current = mix(accentColor(base, 0.5), HOTWHITE, 0.18);
   }, [props.model, props.colors.arc, props.severityAccents]);
 
-  /* ---- the per-frame render ---- */
-  function draw(T: number) {
-    const ctx = ctxRef.current;
+  /* ---- basemap: countries + labels via d3-geo, redrawn on view change ---- */
+  function drawBasemap() {
+    const ctx = baseCtxRef.current;
+    const map = mapRef.current;
+    if (!ctx || !map) return;
+    const { w, h } = sizeRef.current;
+    ctx.clearRect(0, 0, w, h);
+    if (w < 2 || h < 2) return;
+
+    const p = propsRef.current;
+    const zoom = map.getZoom();
+    // d3 geoMercator calibrated to Leaflet's spherical Web-Mercator pixel space:
+    // a full 360° spans 256·2^zoom px, and (0,0) maps to its container point.
+    const k = (256 * Math.pow(2, zoom)) / (2 * Math.PI);
+    const c0 = map.latLngToContainerPoint([0, 0]);
+    const proj = geoMercator()
+      .scale(k)
+      .translate([c0.x, c0.y])
+      .center([0, 0])
+      .rotate([0, 0, 0]);
+    const path = geoPath(proj, ctx);
+
+    ctx.beginPath();
+    path(countryCollection as any);
+    ctx.fillStyle = p.colors.land;
+    ctx.fill();
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = p.colors.border;
+    ctx.stroke();
+
+    if (p.showLabels) {
+      ctx.font = "600 11px Inter, system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      const lbl = hexToRgb(p.colors.label);
+      for (const m of COUNTRY_LABELS) {
+        if (zoom < (m.min ?? 0)) continue;
+        const cp = map.latLngToContainerPoint([m.lat, m.lon]);
+        if (cp.x < -30 || cp.x > w + 30 || cp.y < -20 || cp.y > h + 20) continue;
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = "rgba(8,10,14,0.62)";
+        ctx.strokeText(m.text, cp.x, cp.y);
+        ctx.fillStyle = rgba(lbl, 0.74);
+        ctx.fillText(m.text, cp.x, cp.y);
+      }
+    }
+  }
+
+  /** Redraw the basemap only when the view, size, or styling actually changes. */
+  function syncBasemap() {
+    const map = mapRef.current;
+    if (!map) return;
+    const { w, h } = sizeRef.current;
+    const c0 = map.latLngToContainerPoint([0, 0]);
+    const p = propsRef.current;
+    const sig = `${map.getZoom()}|${Math.round(c0.x)}|${Math.round(c0.y)}|${w}|${h}|${p.colors.land}|${p.colors.border}|${p.colors.label}|${p.showLabels ? 1 : 0}`;
+    if (sig === baseSigRef.current) return;
+    baseSigRef.current = sig;
+    drawBasemap();
+  }
+
+  /* ---- per-frame animation: arcs, comets, pulses ---- */
+  function drawAnimation(T: number) {
+    const ctx = animCtxRef.current;
     const map = mapRef.current;
     if (!ctx || !map) return;
     const { w, h } = sizeRef.current;
     ctx.clearRect(0, 0, w, h);
 
     const project = (lat: number, lon: number): Pt => {
-      const p = map.latLngToContainerPoint([lat, lon]);
-      return [p.x, p.y];
+      const pp = map.latLngToContainerPoint([lat, lon]);
+      return [pp.x, pp.y];
     };
     const inView = (x: number, y: number, pad = 80) =>
       x > -pad && x < w + pad && y > -pad && y < h + pad;
@@ -365,27 +421,6 @@ export default function ThreatMap(props: ThreatMapProps) {
         for (const o of m.origins) pts.push([o.lat, o.lon]);
         for (const d of m.dests) pts.push([d.lat, d.lon]);
         map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 5, animate: false });
-      }
-    }
-
-    const zoom = map.getZoom();
-
-    // ---- country labels (under the arcs) ----
-    if (p.showLabels) {
-      ctx.font = "600 11px Inter, system-ui, -apple-system, Segoe UI, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.lineJoin = "round";
-      const lbl = hexToRgb(p.colors.label);
-      for (const m of COUNTRY_LABELS) {
-        if (zoom < (m.min ?? 0)) continue;
-        const [x, y] = project(m.lat, m.lon);
-        if (!inView(x, y, 30)) continue;
-        ctx.lineWidth = 2.6;
-        ctx.strokeStyle = "rgba(8,10,14,0.62)";
-        ctx.strokeText(m.text, x, y);
-        ctx.fillStyle = rgba(lbl, 0.74);
-        ctx.fillText(m.text, x, y);
       }
     }
 
@@ -491,7 +526,7 @@ export default function ThreatMap(props: ThreatMapProps) {
 
     // ---- destination convergence pulse ----
     const dc = destColorRef.current;
-    for (const d of propsRef.current.model.dests) {
+    for (const d of p.model.dests) {
       const [x, y] = project(d.lat, d.lon);
       if (!inView(x, y, 30)) continue;
       fr.dests.push({ x, y, d });
