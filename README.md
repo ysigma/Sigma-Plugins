@@ -13,6 +13,7 @@ page, so each has its own URL to register in Sigma:
 | **Global threat-origin arc map** | `https://ysigma.github.io/Sigma-Plugins/arc.html` | `src/arc/` |
 | **Segmented Bar Meter** | `https://ysigma.github.io/Sigma-Plugins/segmented-bar/` | `segmented-bar/` |
 | **Circle Grid** | `https://ysigma.github.io/Sigma-Plugins/circle/` | `circle/` |
+| **Assessment Dot Plot** | `https://ysigma.github.io/Sigma-Plugins/assessment/` | `assessment/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -349,6 +350,53 @@ together, so the whole grid stays on one palette.
 Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
 design (Departments and their open-item counts). Query params preview variants:
 `?color=2f6fd0&bg=ffffff&cols=4&thick=Thick&size=Small&px=72&lsize=Auto-fit&upper=1`.
+
+## Assessment Dot Plot
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/assessment/`**
+
+A categorical **dot plot** for tracking each item (e.g. a tech platform) through a
+pipeline of stages. It takes **two dimensions**: a **Platform** dimension on the
+**rows** (one row per value) and a **Stage** dimension on the **x-axis**. Each
+platform's circle is drawn in the column matching its stage value — so dropping
+in or re-pointing the **Stage** column moves the circle to that stage. Matches the
+PIF assurance reference (Secure Design → Security Assessments → Remediation).
+
+### Features
+
+- ⏺ **Two-dimension placement** — platforms list down the left; each gets one
+  circle positioned in its stage's column. Change a row's stage and the dot moves.
+- 🎨 **Customizable color** — pick a swatch from the palette (Gold, Amber, Blue,
+  Teal, Green, Red, Orange, Purple, Pink, Slate) or set an exact custom hex. The
+  canvas auto-themes (light/dark) from the background, falling back to the
+  workbook style.
+- 📏 **Customizable circle size** — Extra small → Extra large, or an exact px-radius
+  override.
+- 📜 **Fits any list** — columns stay aligned; when there are more platforms than
+  fit, the plot scrolls vertically while the x-axis stays pinned at the bottom.
+- 🔎 **Hover tooltips** with the platform name and its stage. Platforms with no
+  stage value are listed (no circle) and counted in a small notice.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Platform (dimension)** | column | One row per distinct value, listed down the Y axis. |
+| **Stage (dimension)** | column | Decides which column each platform's circle sits in. |
+| **Stage order (left → right)** | text | Optional comma-separated column order, e.g. `Secure Design, Security Assessments, Remediation`. Stages not listed are appended in first-seen order. |
+| **Circle color (palette)** | dropdown | Named swatch for the circles. |
+| **Circle color (custom override)** | color | A custom hex color that overrides the palette swatch. |
+| **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
+| **Circle size** | dropdown | Extra small / Small / Medium / Large / Extra large. |
+| **Circle size override (px radius)** | text | Optional exact radius in px (2–40); overrides the dropdown. |
+| **Show gridlines** | toggle | Faint row/column gridlines. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+dashboard (platforms across the three assessment stages). Query params preview
+variants: `?color=4e79a7&bg=ffffff&size=Large&px=12&grid=0`.
 
 ## Local development
 
