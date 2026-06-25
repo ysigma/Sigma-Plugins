@@ -29,6 +29,7 @@ export default defineConfig({
       //   status.html              -> Service status timeline      ( /status.html )
       //   arc.html                 -> Global threat-origin arc map ( /arc.html )
       //   segmented-bar/index.html -> Segmented Bar Meter          ( /segmented-bar/ )
+      //   circle/index.html        -> Circle Grid                  ( /circle/ )
       input: {
         main: resolve(__dirname, "index.html"),
         saudi: resolve(__dirname, "saudi.html"),
@@ -36,6 +37,7 @@ export default defineConfig({
         status: resolve(__dirname, "status.html"),
         arc: resolve(__dirname, "arc.html"),
         segmentedBar: resolve(__dirname, "segmented-bar/index.html"),
+        circle: resolve(__dirname, "circle/index.html"),
       },
     },
   },

@@ -1,0 +1,201 @@
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+}
+
+/* The plugin fills its tile; the grid scrolls if it overflows. */
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+/* ---------- Circle grid ---------- */
+.cg-grid {
+  display: grid;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 26px;
+  /* Center the rings block when there's spare room; `safe` falls back to
+     top-aligned (fully scrollable) when the circles overflow a short tile. */
+  align-content: safe center;
+  justify-items: center;
+}
+
+.cg-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Square wrapper holding the SVG ring + the centered label. */
+.cg-ring-wrap {
+  position: relative;
+  width: var(--cg-d, 172px);
+  height: var(--cg-d, 172px);
+  max-width: 100%;
+}
+
+.cg-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Label sits inside the ring's inscribed square (~70% of the diameter). */
+.cg-label {
+  position: absolute;
+  inset: 15%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 600;
+  font-size: calc(var(--cg-d, 172px) * 0.108);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+}
+
+.cg-label.upper {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Clamp long labels so they never spill outside the ring. */
+.cg-label-inner {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* The measure, drawn below the ring. */
+.cg-value {
+  margin-top: calc(var(--cg-d, 172px) * 0.05);
+  font-weight: 800;
+  font-size: calc(var(--cg-d, 172px) * 0.26);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cg-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* ---------- Empty / setup state ---------- */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #1f2733;
+}
+
+.empty-card {
+  max-width: 360px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 44px;
+  margin-bottom: 8px;
+}
+
+.empty-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.empty-card p {
+  margin: 0 0 14px;
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+.empty-steps {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  text-align: left;
+  display: inline-block;
+}
+
+.empty-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 13.5px;
+  opacity: 0.8;
+}
+
+.empty-steps li.done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.empty-steps .check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(70, 130, 220, 0.15);
+  color: #2f6fd0;
+  flex: 0 0 auto;
+}
+
+.empty-steps li.done .check {
+  background: rgba(46, 160, 90, 0.18);
+  color: #2ea05a;
+}
+
+/* Light chrome text when the canvas is dark (e.g. the default wireframe look). */
+.app.dark .empty-state {
+  color: #e8eaef;
+}
+.app.dark .empty-card p {
+  opacity: 0.7;
+}
+.app.dark .empty-steps .check {
+  background: rgba(212, 175, 55, 0.2);
+  color: #d4af37;
+}
+.app.dark .empty-steps li.done .check {
+  background: rgba(120, 200, 150, 0.2);
+  color: #84d29a;
+}

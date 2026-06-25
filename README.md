@@ -12,6 +12,7 @@ page, so each has its own URL to register in Sigma:
 | **Service status timeline** | `https://ysigma.github.io/Sigma-Plugins/status.html` | `src/status/` |
 | **Global threat-origin arc map** | `https://ysigma.github.io/Sigma-Plugins/arc.html` | `src/arc/` |
 | **Segmented Bar Meter** | `https://ysigma.github.io/Sigma-Plugins/segmented-bar/` | `segmented-bar/` |
+| **Circle Grid** | `https://ysigma.github.io/Sigma-Plugins/circle/` | `circle/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -297,6 +298,53 @@ that split it into sections, and the **color** of each section. Great for
 Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
 design (value `25` on a 0–100 scale). Query params preview variants:
 `?value=72&min=0&max=100&t=31,57,79&colors=3aa655,c9b13a,e08a3c,cf4436&title=Score&light=1`.
+
+## Circle Grid
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/circle/`**
+
+A responsive grid of **high-definition rings**, one per value of a dimension,
+each with its **label centered inside** the ring and an optional **measure
+drawn below** it — matching the gold-rings-on-black reference design. A
+**single color control** drives the rings, their labels, and the values
+together, so the whole grid stays on one palette.
+
+### Features
+
+- ⭕ **Crisp SVG rings** — scale to any size without blurring; ring thickness is
+  proportional so circles read consistently at every size.
+- 🔤 **Label inside, measure below** — bind a dimension for the labels and
+  (optionally) a measure for the number under each ring. Long labels wrap and
+  clamp so they always stay inside the ring.
+- 🎨 **One color, everything** — a single color selector colors the rings,
+  labels, and values in unison (defaults to the reference gold). A separate
+  background control defaults to near-black to match the wireframe, and the
+  setup chrome auto-themes for light or dark backgrounds.
+- 🧱 **Responsive layout** — auto-fit columns (or a fixed 1–6) and Small /
+  Medium / Large circle sizes; the grid centers when it fits and scrolls when it
+  doesn't.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Label (dimension)** | column | One circle is drawn per row; this text goes inside the ring. |
+| **Measure** | column | Optional numeric measure drawn below each ring. |
+| **Color — rings, labels & values** | color | The single color applied to rings, labels, and values. |
+| **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
+| **Circle size** | dropdown | Small / Medium / Large. |
+| **Columns** | dropdown | `Auto` (fit to width) or a fixed 1–6. |
+| **Ring thickness** | dropdown | Thin / Medium / Thick. |
+| **Show measure below circle** | toggle | Show/hide the value under each ring. |
+| **Uppercase labels** | toggle | Render labels in uppercase. |
+| **Decimal places** | dropdown | `Auto` or a fixed number of decimals. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+design (Departments and their open-item counts). Query params preview variants:
+`?color=2f6fd0&bg=ffffff&cols=3&thick=Thick&size=Large&upper=1`.
 
 ## Local development
 
