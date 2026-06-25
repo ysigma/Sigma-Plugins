@@ -206,6 +206,11 @@ export default function ThreatMap(props: ThreatMapProps) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
       sizeRef.current = { w, h };
+      // Resizing the canvas above also clears it, so force the (signature-gated)
+      // basemap to redraw on the next frame — otherwise an embed whose
+      // ResizeObserver fires at the same size right after the first draw is left
+      // with a blank basemap until a zoom changes the signature.
+      baseSigRef.current = "";
       // Keep the world at least as tall as the panel so zooming out never
       // reveals black above/below (tiling handles the width).
       const minZ = Math.max(1, Math.log2(h / 256));
