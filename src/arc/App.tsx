@@ -69,7 +69,7 @@ export default function App() {
   const autoFit = config.autoFit !== false;
   const framingRaw = str(config.framing);
   const framing: "world" | "fill" | "origins" =
-    framingRaw === "Fill width" ? "fill" : framingRaw === "Fit all origins" ? "origins" : "world";
+    framingRaw === "Fill width" ? "fill" : framingRaw === "Whole world" ? "world" : "origins";
 
   // Default destination (used when no dest columns are bound).
   const defaultDest = useMemo(() => {
