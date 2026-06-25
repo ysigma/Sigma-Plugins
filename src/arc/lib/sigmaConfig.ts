@@ -144,8 +144,8 @@ export function configureEditorPanel(): void {
     {
       name: "framing",
       type: "dropdown",
-      values: ["Fill width", "Fit all origins"],
-      defaultValue: "Fill width",
+      values: ["Whole world", "Fill width", "Fit all origins"],
+      defaultValue: "Whole world",
       label: "Map framing",
     },
   ]);

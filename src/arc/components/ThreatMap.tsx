@@ -38,9 +38,10 @@ export interface ThreatMapProps {
   flowSpeedMult: number;
   showLabels: boolean;
   autoFit: boolean;
-  /** true = zoom to fill the viewport width (trims top/bottom ocean); false =
-   * fit so every origin stays fully visible (may leave slim side margins). */
-  fillWidth: boolean;
+  /** "world" = whole world fills the width (default, nothing clipped);
+   *  "fill"  = zoom into the origin spread to fill the width (may clip the
+   *            far-N/S origins); "origins" = fit so every origin is visible. */
+  framing: "world" | "fill" | "origins";
 }
 
 /* ---------- tuning constants ---------- */
@@ -399,13 +400,14 @@ export default function ThreatMap(props: ThreatMapProps) {
     const p = propsRef.current;
 
     // Auto-frame from the loop (so it only runs once the canvas has a real
-    // size). Re-runs when the data or the container size changes.
-    //   fillWidth=true  -> uniform zoom to fill the viewport width (no stretch),
-    //                      trimming empty ocean top/bottom.
-    //   fillWidth=false -> fit so every origin stays on-screen (slim side gaps).
+    // size). Re-runs when the data, framing, or container size changes.
+    //   world   -> whole world fills the width; only polar caps trimmed.
+    //   fill    -> uniform zoom to fill the width with the origin spread
+    //              (may clip the far-N/S origins).
+    //   origins -> fit so every origin stays on-screen (slim side gaps).
     if (p.autoFit && w > 2 && h > 2) {
       const m = p.model;
-      const sig = `${m.arcs.length}:${m.origins.length}:${m.dests.length}:${m.totalRows}:${p.fillWidth ? "fw" : "fo"}:${Math.round(w / 12)}x${Math.round(h / 12)}`;
+      const sig = `${m.arcs.length}:${m.origins.length}:${m.dests.length}:${m.totalRows}:${p.framing}:${Math.round(w / 12)}x${Math.round(h / 12)}`;
       if (sig !== fitSigRef.current && (m.origins.length || m.dests.length)) {
         fitSigRef.current = sig;
         let minLat = 90,
@@ -424,18 +426,26 @@ export default function ThreatMap(props: ThreatMapProps) {
         const cl = (x: number) => Math.max(-85, Math.min(85, x));
         const mY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (cl(lat) * Math.PI) / 360));
         const invMY = (y: number) => (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * (180 / Math.PI);
+        const midLat = invMY((mY(minLat) + mY(maxLat)) / 2);
 
-        const lonPad = Math.max(3, (maxLon - minLon) * 0.02);
-        const lonSpan = Math.min(359, maxLon - minLon + 2 * lonPad);
-        const latFrac = Math.max(0.02, Math.abs(mY(maxLat) - mY(minLat)) / (2 * Math.PI));
-
-        const zoomW = Math.log2((w * 360) / (lonSpan * 256)); // fills the width
-        const zoomH = Math.log2((h * 0.99) / (latFrac * 256)); // keeps origins on-screen
-        const zoom = Math.max(1, Math.min(6.5, p.fillWidth ? zoomW : Math.min(zoomW, zoomH)));
-
-        const centerLat = invMY((mY(minLat) + mY(maxLat)) / 2);
-        const centerLon = (minLon + maxLon) / 2;
-        map.setView([centerLat, centerLon], zoom, { animate: false });
+        let zoom: number;
+        let centerLon: number;
+        if (p.framing === "world") {
+          // Whole world fills the width, centred on [-180,180] so there are no
+          // empty side strips; only the polar caps are trimmed top/bottom.
+          zoom = Math.log2(w / 256);
+          centerLon = 0;
+        } else {
+          const lonPad = Math.max(3, (maxLon - minLon) * 0.02);
+          const lonSpan = Math.min(359, maxLon - minLon + 2 * lonPad);
+          const latFrac = Math.max(0.02, Math.abs(mY(maxLat) - mY(minLat)) / (2 * Math.PI));
+          const zoomW = Math.log2((w * 360) / (lonSpan * 256)); // fills the width
+          const zoomH = Math.log2((h * 0.99) / (latFrac * 256)); // keeps origins on-screen
+          zoom = p.framing === "fill" ? zoomW : Math.min(zoomW, zoomH);
+          centerLon = (minLon + maxLon) / 2;
+        }
+        zoom = Math.max(1, Math.min(6.5, zoom));
+        map.setView([midLat, centerLon], zoom, { animate: false });
       }
     }
 
