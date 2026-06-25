@@ -40,9 +40,15 @@ export function configureEditorPanel(): void {
     {
       name: "circleSize",
       type: "dropdown",
-      values: ["Small", "Medium", "Large"],
-      defaultValue: "Medium",
+      values: ["Extra small", "Small", "Medium", "Large", "Extra large"],
+      defaultValue: "Small",
       label: "Circle size",
+    },
+    {
+      name: "circleSizePx",
+      type: "text",
+      placeholder: "(optional) exact px, e.g. 64",
+      label: "Circle size override (px)",
     },
     {
       name: "labelSize",

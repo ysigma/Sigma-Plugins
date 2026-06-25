@@ -335,7 +335,8 @@ together, so the whole grid stays on one palette.
 | **Measure** | column | Optional numeric measure drawn below each ring. |
 | **Color — rings, labels & values** | color | The single color applied to rings, labels, and values. |
 | **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
-| **Circle size** | dropdown | Small / Medium / Large. |
+| **Circle size** | dropdown | Extra small / Small / Medium / Large / Extra large. |
+| **Circle size override (px)** | text | Optional exact diameter in px (24–600); overrides the dropdown. |
 | **Label text size** | dropdown | `Auto-fit` (shrink each label to fit its ring) or fixed Small / Medium / Large / Extra large. |
 | **Columns** | dropdown | `Auto` (fit to width) or a fixed 1–6. |
 | **Ring thickness** | dropdown | Thin / Medium / Thick. |
@@ -347,7 +348,7 @@ together, so the whole grid stays on one palette.
 
 Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
 design (Departments and their open-item counts). Query params preview variants:
-`?color=2f6fd0&bg=ffffff&cols=3&thick=Thick&size=Large&lsize=Auto-fit&upper=1`.
+`?color=2f6fd0&bg=ffffff&cols=4&thick=Thick&size=Small&px=72&lsize=Auto-fit&upper=1`.
 
 ## Local development
 

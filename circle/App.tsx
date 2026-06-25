@@ -57,7 +57,13 @@ function detectStandalone(): boolean {
   }
 }
 
-const SIZE_PX: Record<string, number> = { Small: 132, Medium: 172, Large: 224 };
+const SIZE_PX: Record<string, number> = {
+  "Extra small": 56,
+  Small: 80,
+  Medium: 112,
+  Large: 152,
+  "Extra large": 204,
+};
 const THICKNESS_UNITS: Record<string, number> = { Thin: 3, Medium: 4.5, Thick: 6.5 };
 // Fixed label sizes as a fraction of the circle diameter.
 const LABEL_PROP: Record<string, number> = {
@@ -122,8 +128,12 @@ export default function App() {
   const theme = isDarkBg(background) ? "dark" : "light";
 
   // --- Layout --------------------------------------------------------------
-  const sizeKey = (preview ? preview.get("size") : (config.circleSize as string)) || "Medium";
-  const diameter = SIZE_PX[sizeKey] ?? SIZE_PX.Medium;
+  const sizeKey = (preview ? preview.get("size") : (config.circleSize as string)) || "Small";
+  const sizeOverride = toNum(preview ? preview.get("px") : config.circleSizePx);
+  const diameter =
+    sizeOverride && sizeOverride > 0
+      ? Math.max(24, Math.min(600, sizeOverride))
+      : SIZE_PX[sizeKey] ?? SIZE_PX.Small;
 
   const colsRaw = (preview ? preview.get("cols") : (config.columns as string)) || "Auto";
   const gridColumns: number | "auto" =
