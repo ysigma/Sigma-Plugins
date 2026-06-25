@@ -45,6 +45,13 @@ export function configureEditorPanel(): void {
       label: "Circle size",
     },
     {
+      name: "labelSize",
+      type: "dropdown",
+      values: ["Auto-fit", "Small", "Medium", "Large", "Extra large"],
+      defaultValue: "Auto-fit",
+      label: "Label text size",
+    },
+    {
       name: "columns",
       type: "dropdown",
       values: ["Auto", "1", "2", "3", "4", "5", "6"],

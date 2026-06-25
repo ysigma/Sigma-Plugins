@@ -314,8 +314,10 @@ together, so the whole grid stays on one palette.
 - ⭕ **Crisp SVG rings** — scale to any size without blurring; ring thickness is
   proportional so circles read consistently at every size.
 - 🔤 **Label inside, measure below** — bind a dimension for the labels and
-  (optionally) a measure for the number under each ring. Long labels wrap and
-  clamp so they always stay inside the ring.
+  (optionally) a measure for the number under each ring. Labels wrap only at
+  spaces (whole words are never split mid-character), and **Auto-fit** shrinks
+  each label just enough to stay inside its ring. A **Label text size** control
+  also offers fixed sizes for manual control.
 - 🎨 **One color, everything** — a single color selector colors the rings,
   labels, and values in unison (defaults to the reference gold). A separate
   background control defaults to near-black to match the wireframe, and the
@@ -334,6 +336,7 @@ together, so the whole grid stays on one palette.
 | **Color — rings, labels & values** | color | The single color applied to rings, labels, and values. |
 | **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
 | **Circle size** | dropdown | Small / Medium / Large. |
+| **Label text size** | dropdown | `Auto-fit` (shrink each label to fit its ring) or fixed Small / Medium / Large / Extra large. |
 | **Columns** | dropdown | `Auto` (fit to width) or a fixed 1–6. |
 | **Ring thickness** | dropdown | Thin / Medium / Thick. |
 | **Show measure below circle** | toggle | Show/hide the value under each ring. |
@@ -344,7 +347,7 @@ together, so the whole grid stays on one palette.
 
 Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
 design (Departments and their open-item counts). Query params preview variants:
-`?color=2f6fd0&bg=ffffff&cols=3&thick=Thick&size=Large&upper=1`.
+`?color=2f6fd0&bg=ffffff&cols=3&thick=Thick&size=Large&lsize=Auto-fit&upper=1`.
 
 ## Local development
 

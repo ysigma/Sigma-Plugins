@@ -69,26 +69,23 @@ body,
   align-items: center;
   justify-content: center;
   text-align: center;
+  overflow: hidden;
+}
+
+/* The text whose size is set inline (auto-fit / fixed). It wraps only at
+   spaces — whole words are never split mid-character. */
+.cg-label-text {
   font-weight: 600;
-  font-size: calc(var(--cg-d, 172px) * 0.108);
   line-height: 1.15;
   letter-spacing: 0.01em;
-  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 
-.cg-label.upper {
+.cg-label-text.upper {
   text-transform: uppercase;
   letter-spacing: 0.04em;
-}
-
-/* Clamp long labels so they never spill outside the ring. */
-.cg-label-inner {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 /* The measure, drawn below the ring. */

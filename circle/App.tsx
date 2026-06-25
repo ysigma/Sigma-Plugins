@@ -5,7 +5,12 @@ import {
   usePluginStyle,
   client,
 } from "@sigmacomputing/plugin";
-import CircleGrid, { DEFAULT_COLOR, DEFAULT_BG, type CircleItem } from "./CircleGrid";
+import CircleGrid, {
+  DEFAULT_COLOR,
+  DEFAULT_BG,
+  type CircleItem,
+  type LabelSizing,
+} from "./CircleGrid";
 import EmptyState from "./EmptyState";
 import { DEMO_ROWS } from "./demoData";
 
@@ -54,6 +59,13 @@ function detectStandalone(): boolean {
 
 const SIZE_PX: Record<string, number> = { Small: 132, Medium: 172, Large: 224 };
 const THICKNESS_UNITS: Record<string, number> = { Thin: 3, Medium: 4.5, Thick: 6.5 };
+// Fixed label sizes as a fraction of the circle diameter.
+const LABEL_PROP: Record<string, number> = {
+  Small: 0.085,
+  Medium: 0.105,
+  Large: 0.125,
+  "Extra large": 0.15,
+};
 
 export default function App() {
   const config = useConfig() ?? {};
@@ -120,6 +132,16 @@ export default function App() {
   const thickKey = (preview ? preview.get("thick") : (config.ringThickness as string)) || "Medium";
   const ringThickness = THICKNESS_UNITS[thickKey] ?? THICKNESS_UNITS.Medium;
 
+  // Label sizing: "Auto-fit" shrinks each label to fit its ring (no mid-word
+  // breaks); the fixed sizes give direct manual control.
+  const labelSizeKey = (preview ? preview.get("lsize") : (config.labelSize as string)) || "Auto-fit";
+  const labelSizing: LabelSizing = {
+    autoFit: labelSizeKey === "Auto-fit" || !(labelSizeKey in LABEL_PROP),
+    maxPx: diameter * 0.13,
+    minPx: Math.max(7, diameter * 0.05),
+    fixedPx: diameter * (LABEL_PROP[labelSizeKey] ?? LABEL_PROP.Medium),
+  };
+
   // --- Display -------------------------------------------------------------
   const showValue = preview ? preview.get("novalue") !== "1" : config.showValue !== false;
   const uppercase = preview ? preview.get("upper") === "1" : config.uppercase === true;
@@ -157,6 +179,7 @@ export default function App() {
           hasMeasure={hasMeasure}
           uppercase={uppercase}
           decimals={decimals}
+          labelSizing={labelSizing}
         />
       )}
     </div>
