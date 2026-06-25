@@ -141,5 +141,12 @@ export function configureEditorPanel(): void {
       defaultValue: true,
       label: "Auto-fit to data",
     },
+    {
+      name: "framing",
+      type: "dropdown",
+      values: ["Fill width", "Fit all origins"],
+      defaultValue: "Fill width",
+      label: "Map framing",
+    },
   ]);
 }

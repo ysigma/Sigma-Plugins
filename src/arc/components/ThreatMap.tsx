@@ -38,6 +38,9 @@ export interface ThreatMapProps {
   flowSpeedMult: number;
   showLabels: boolean;
   autoFit: boolean;
+  /** true = zoom to fill the viewport width (trims top/bottom ocean); false =
+   * fit so every origin stays fully visible (may leave slim side margins). */
+  fillWidth: boolean;
 }
 
 /* ---------- tuning constants ---------- */
@@ -155,6 +158,7 @@ export default function ThreatMap(props: ThreatMapProps) {
       worldCopyJump: false,
       zoomAnimation: false, // keep basemap + overlay locked together
       markerZoomAnimation: false,
+      zoomSnap: 0, // allow fractional zoom so the width can be filled exactly
       minZoom: 1,
       maxZoom: 7,
       maxBounds: [
@@ -394,17 +398,44 @@ export default function ThreatMap(props: ThreatMapProps) {
 
     const p = propsRef.current;
 
-    // One-shot auto-fit, run from the loop so it only fires once the canvas has
-    // a real size (avoids a bad initial zoom from a 0-size iframe at mount).
+    // Auto-frame from the loop (so it only runs once the canvas has a real
+    // size). Re-runs when the data or the container size changes.
+    //   fillWidth=true  -> uniform zoom to fill the viewport width (no stretch),
+    //                      trimming empty ocean top/bottom.
+    //   fillWidth=false -> fit so every origin stays on-screen (slim side gaps).
     if (p.autoFit && w > 2 && h > 2) {
       const m = p.model;
-      const sig = `${m.arcs.length}:${m.origins.length}:${m.dests.length}:${m.totalRows}`;
+      const sig = `${m.arcs.length}:${m.origins.length}:${m.dests.length}:${m.totalRows}:${p.fillWidth ? "fw" : "fo"}:${Math.round(w / 12)}x${Math.round(h / 12)}`;
       if (sig !== fitSigRef.current && (m.origins.length || m.dests.length)) {
         fitSigRef.current = sig;
-        const pts: L.LatLngExpression[] = [];
-        for (const o of m.origins) pts.push([o.lat, o.lon]);
-        for (const d of m.dests) pts.push([d.lat, d.lon]);
-        map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 5, animate: false });
+        let minLat = 90,
+          maxLat = -90,
+          minLon = 180,
+          maxLon = -180;
+        const acc = (lat: number, lon: number) => {
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+        };
+        for (const o of m.origins) acc(o.lat, o.lon);
+        for (const d of m.dests) acc(d.lat, d.lon);
+
+        const cl = (x: number) => Math.max(-85, Math.min(85, x));
+        const mY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (cl(lat) * Math.PI) / 360));
+        const invMY = (y: number) => (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * (180 / Math.PI);
+
+        const lonPad = Math.max(3, (maxLon - minLon) * 0.02);
+        const lonSpan = Math.min(359, maxLon - minLon + 2 * lonPad);
+        const latFrac = Math.max(0.02, Math.abs(mY(maxLat) - mY(minLat)) / (2 * Math.PI));
+
+        const zoomW = Math.log2((w * 360) / (lonSpan * 256)); // fills the width
+        const zoomH = Math.log2((h * 0.99) / (latFrac * 256)); // keeps origins on-screen
+        const zoom = Math.max(1, Math.min(6.5, p.fillWidth ? zoomW : Math.min(zoomW, zoomH)));
+
+        const centerLat = invMY((mY(minLat) + mY(maxLat)) / 2);
+        const centerLon = (minLon + maxLon) / 2;
+        map.setView([centerLat, centerLon], zoom, { animate: false });
       }
     }
 

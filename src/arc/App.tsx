@@ -67,6 +67,7 @@ export default function App() {
   const showLabels = config.showLabels !== false;
   const showLegend = config.showLegend !== false;
   const autoFit = config.autoFit !== false;
+  const fillWidth = str(config.framing) !== "Fit all origins";
 
   // Default destination (used when no dest columns are bound).
   const defaultDest = useMemo(() => {
@@ -154,6 +155,7 @@ export default function App() {
             flowSpeedMult={flowSpeedMult}
             showLabels={showLabels}
             autoFit={autoFit}
+            fillWidth={fillWidth}
           />
           {showLegend && <Legend entries={legendEntries} />}
           {model.totalRows === 0 ? (
