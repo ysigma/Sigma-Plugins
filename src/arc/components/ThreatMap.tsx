@@ -4,14 +4,15 @@
  *
  *   1. a BASEMAP canvas — dark countries + labels, drawn with d3-geo's geoPath
  *      (calibrated exactly to Leaflet's Web-Mercator view). It clips at the
- *      antimeridian and is TILED horizontally (world copies left/right), so the
- *      map repeats across the viewport and never shows empty sides.
+ *      antimeridian and draws a SINGLE world (no repeating copies).
  *
  *   2. an ANIMATION canvas — arcs, flowing arrowhead comets, pulsating origins
- *      and the destination convergence pulse, also tiled to match the basemap.
+ *      and the destination convergence pulse.
  *
- * A dynamic minZoom keeps the world at least as tall as the panel, so zooming
- * out can never reveal black above/below either; tiling covers the width.
+ * There is only ever one world map. A dynamic minZoom keeps that single world
+ * at least as large as the panel, and maxBounds clamps panning to the world's
+ * real extent (±180° lon, ±85° lat), so you can never zoom out or pan far
+ * enough to reveal empty black or a duplicate world.
  */
 import { useEffect, useRef } from "react";
 import * as L from "leaflet";
@@ -97,17 +98,6 @@ function controlPoint(p0: Pt, p2: Pt): Pt {
   return [(p0[0] + p2[0]) / 2 + nx * bulge, (p0[1] + p2[1]) / 2 + ny * bulge];
 }
 
-/** Horizontal world-copy offsets (in px) that cover the viewport — the basis
- * for the repeating map. Always includes 0 (the central copy). */
-function worldOffsets(c0x: number, worldSize: number, w: number): number[] {
-  if (!(worldSize > 0)) return [0];
-  const nMin = Math.floor((-c0x - worldSize / 2) / worldSize);
-  const nMax = Math.ceil((w - c0x + worldSize / 2) / worldSize);
-  const out: number[] = [];
-  for (let n = nMin; n <= nMax && out.length < 16; n++) out.push(n * worldSize);
-  return out.length ? out : [0];
-}
-
 export default function ThreatMap(props: ThreatMapProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -128,14 +118,12 @@ export default function ThreatMap(props: ThreatMapProps) {
   const rOriginsRef = useRef<RenderOrigin[]>([]);
   const destColorRef = useRef<RGB>({ r: 255, g: 120, b: 40 });
 
-  // Per-frame projected geometry (central copy) + active tile offsets, reused
-  // for hover hit-testing.
+  // Per-frame projected geometry, reused for hover hit-testing.
   const frameRef = useRef<{
     origins: { x: number; y: number; o: OriginPoint }[];
     dests: { x: number; y: number; d: DestPoint }[];
     arcs: { pts: Pt[]; a: Arc }[];
-    offsets: number[];
-  }>({ origins: [], dests: [], arcs: [], offsets: [0] });
+  }>({ origins: [], dests: [], arcs: [] });
 
   // Glow sprites cached by colour key.
   const spriteRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
@@ -167,13 +155,13 @@ export default function ThreatMap(props: ThreatMapProps) {
       zoomAnimation: false, // keep basemap + overlay locked together
       markerZoomAnimation: false,
       zoomSnap: 0, // fractional zoom for exact framing
-      minZoom: 1, // refined dynamically in resize() (world fills the height)
+      minZoom: 1, // refined dynamically in resize() (world fills the panel)
       maxZoom: 7,
-      // Limit latitude to the poles; longitude is effectively unbounded so the
-      // map can be panned freely across the repeating world copies.
+      // Clamp panning to the single world's real extent so you can't scroll off
+      // its edges into empty space (no repeating copies).
       maxBounds: [
-        [-85, -100000],
-        [85, 100000],
+        [-85, -180],
+        [85, 180],
       ],
       maxBoundsViscosity: 1.0,
       center: [22, 28],
@@ -211,9 +199,10 @@ export default function ThreatMap(props: ThreatMapProps) {
       // ResizeObserver fires at the same size right after the first draw is left
       // with a blank basemap until a zoom changes the signature.
       baseSigRef.current = "";
-      // Keep the world at least as tall as the panel so zooming out never
-      // reveals black above/below (tiling handles the width).
-      const minZ = Math.max(1, Math.log2(h / 256));
+      // The (square) world must cover the whole panel at the most-zoomed-out
+      // level, so the single world never leaves black on any side. The larger
+      // panel dimension is the binding constraint.
+      const minZ = Math.max(1, Math.log2(Math.max(w, h) / 256));
       if (Math.abs(map.getMinZoom() - minZ) > 0.01) map.setMinZoom(minZ);
     };
     resize();
@@ -232,41 +221,34 @@ export default function ThreatMap(props: ThreatMapProps) {
     };
     rafRef.current = requestAnimationFrame(loop);
 
-    // ---- hover hit-testing (tested against every visible world copy) ----
+    // ---- hover hit-testing ----
     const onMove: L.LeafletEventHandlerFn = (e) => {
       const { x, y } = (e as L.LeafletMouseEvent).containerPoint;
       const fr = frameRef.current;
-      const offsets = fr.offsets.length ? fr.offsets : [0];
       let hit: { html: string } | null = null;
       let best = Infinity;
-      for (const dx of offsets) {
-        const lx = x - dx;
-        for (const o of fr.origins) {
-          const dd = Math.hypot(o.x - lx, o.y - y);
-          if (dd < 14 && dd < best) {
-            best = dd;
-            hit = { html: o.o.tooltipHtml };
-          }
+      for (const o of fr.origins) {
+        const dd = Math.hypot(o.x - x, o.y - y);
+        if (dd < 14 && dd < best) {
+          best = dd;
+          hit = { html: o.o.tooltipHtml };
         }
-        for (const d of fr.dests) {
-          const dd = Math.hypot(d.x - lx, d.y - y);
-          if (dd < 17 && dd < best) {
-            best = dd;
-            hit = { html: d.d.tooltipHtml };
-          }
+      }
+      for (const d of fr.dests) {
+        const dd = Math.hypot(d.x - x, d.y - y);
+        if (dd < 17 && dd < best) {
+          best = dd;
+          hit = { html: d.d.tooltipHtml };
         }
       }
       if (!hit) {
         let arcBest = 7;
-        for (const dx of offsets) {
-          const lx = x - dx;
-          for (const a of fr.arcs) {
-            for (let i = 1; i < a.pts.length; i++) {
-              const dd = distToSeg(lx, y, a.pts[i - 1], a.pts[i]);
-              if (dd < arcBest) {
-                arcBest = dd;
-                hit = { html: a.a.tooltipHtml };
-              }
+        for (const a of fr.arcs) {
+          for (let i = 1; i < a.pts.length; i++) {
+            const dd = distToSeg(x, y, a.pts[i - 1], a.pts[i]);
+            if (dd < arcBest) {
+              arcBest = dd;
+              hit = { html: a.a.tooltipHtml };
             }
           }
         }
@@ -333,7 +315,7 @@ export default function ThreatMap(props: ThreatMapProps) {
     destColorRef.current = mix(accentColor(base, 0.5), HOTWHITE, 0.18);
   }, [props.model, props.colors.arc]);
 
-  /* ---- basemap: countries + labels via d3-geo, tiled, redrawn on view change ---- */
+  /* ---- basemap: single world of countries + labels via d3-geo ---- */
   function drawBasemap() {
     const ctx = baseCtxRef.current;
     const map = mapRef.current;
@@ -348,39 +330,31 @@ export default function ThreatMap(props: ThreatMapProps) {
     const c0 = map.latLngToContainerPoint([0, 0]);
     const proj = geoMercator().scale(k).translate([c0.x, c0.y]).center([0, 0]).rotate([0, 0, 0]);
     const path = geoPath(proj, ctx);
-    const worldSize = 256 * Math.pow(2, zoom);
-    const offsets = worldOffsets(c0.x, worldSize, w);
-    const lbl = p.showLabels ? hexToRgb(p.colors.label) : null;
 
-    for (const dx of offsets) {
-      ctx.save();
-      ctx.translate(dx, 0);
-      ctx.beginPath();
-      path(countryCollection as any);
-      ctx.fillStyle = p.colors.land;
-      ctx.fill();
-      ctx.lineWidth = 0.6;
-      ctx.strokeStyle = p.colors.border;
-      ctx.stroke();
+    ctx.beginPath();
+    path(countryCollection as any);
+    ctx.fillStyle = p.colors.land;
+    ctx.fill();
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = p.colors.border;
+    ctx.stroke();
 
-      if (lbl) {
-        ctx.font = "600 11px Inter, system-ui, -apple-system, Segoe UI, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineJoin = "round";
-        for (const m of COUNTRY_LABELS) {
-          if (zoom < (m.min ?? 0)) continue;
-          const cp = map.latLngToContainerPoint([m.lat, m.lon]);
-          const sx = cp.x + dx;
-          if (sx < -30 || sx > w + 30 || cp.y < -20 || cp.y > h + 20) continue;
-          ctx.lineWidth = 2.6;
-          ctx.strokeStyle = "rgba(8,10,14,0.62)";
-          ctx.strokeText(m.text, cp.x, cp.y);
-          ctx.fillStyle = rgba(lbl, 0.74);
-          ctx.fillText(m.text, cp.x, cp.y);
-        }
+    if (p.showLabels) {
+      const lbl = hexToRgb(p.colors.label);
+      ctx.font = "600 11px Inter, system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      for (const m of COUNTRY_LABELS) {
+        if (zoom < (m.min ?? 0)) continue;
+        const cp = map.latLngToContainerPoint([m.lat, m.lon]);
+        if (cp.x < -30 || cp.x > w + 30 || cp.y < -20 || cp.y > h + 20) continue;
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = "rgba(8,10,14,0.62)";
+        ctx.strokeText(m.text, cp.x, cp.y);
+        ctx.fillStyle = rgba(lbl, 0.74);
+        ctx.fillText(m.text, cp.x, cp.y);
       }
-      ctx.restore();
     }
   }
 
@@ -397,7 +371,7 @@ export default function ThreatMap(props: ThreatMapProps) {
     drawBasemap();
   }
 
-  /* ---- per-frame animation: arcs, comets, pulses (tiled) ---- */
+  /* ---- per-frame animation: arcs, comets, pulses (single world) ---- */
   function drawAnimation(T: number) {
     const ctx = animCtxRef.current;
     const map = mapRef.current;
@@ -455,49 +429,34 @@ export default function ThreatMap(props: ThreatMapProps) {
       }
     }
 
-    // Compute central geometry once; draw every world copy via ctx.translate.
-    const worldSize = 256 * Math.pow(2, map.getZoom());
-    const c0x = map.latLngToContainerPoint([0, 0]).x;
-    const offsets = worldOffsets(c0x, worldSize, w);
-
     const fr = frameRef.current;
-    fr.offsets = offsets;
     fr.origins = [];
     fr.dests = [];
     fr.arcs = [];
 
-    const arcGeom = rArcsRef.current.map((ra) => {
+    const flowRate = BASE_FLOW_RATE * p.flowSpeedMult;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (const ra of rArcsRef.current) {
       const p0 = project(ra.src.srcLat, ra.src.srcLon);
       const p2 = project(ra.src.dstLat, ra.src.dstLon);
       const cp = controlPoint(p0, p2);
       const pts: Pt[] = [];
       for (let i = 0; i <= ARC_SAMPLES; i++) pts.push(bez(p0, cp, p2, i / ARC_SAMPLES));
       fr.arcs.push({ pts, a: ra.src });
-      return { ra, p0, p2, cp, pts };
-    });
-    const origGeom = rOriginsRef.current.map((ro) => {
+      drawArc(ctx, ra, p0, p2, cp, pts, T, flowRate, glowSprite);
+    }
+    for (const ro of rOriginsRef.current) {
       const [x, y] = project(ro.src.lat, ro.src.lon);
       fr.origins.push({ x, y, o: ro.src });
-      return { ro, x, y };
-    });
+      drawOrigin(ctx, ro, x, y, T, glowSprite);
+    }
     const dc = destColorRef.current;
-    const destGeom = p.model.dests.map((d) => {
+    for (const d of p.model.dests) {
       const [x, y] = project(d.lat, d.lon);
       fr.dests.push({ x, y, d });
-      return { x, y };
-    });
-
-    const flowRate = BASE_FLOW_RATE * p.flowSpeedMult;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    for (const dx of offsets) {
-      ctx.save();
-      ctx.translate(dx, 0);
-      for (const g of arcGeom) drawArc(ctx, g.ra, g.p0, g.p2, g.cp, g.pts, T, flowRate, glowSprite);
-      for (const g of origGeom) drawOrigin(ctx, g.ro, g.x, g.y, T, glowSprite);
-      for (const g of destGeom) drawDest(ctx, g.x, g.y, dc, T, glowSprite);
-      ctx.restore();
+      drawDest(ctx, x, y, dc, T, glowSprite);
     }
   }
 
@@ -508,7 +467,7 @@ export default function ThreatMap(props: ThreatMapProps) {
   );
 }
 
-/* ---------- scene draw helpers (called once per world copy) ---------- */
+/* ---------- scene draw helpers ---------- */
 function drawArc(
   ctx: CanvasRenderingContext2D,
   ra: RenderArc,
