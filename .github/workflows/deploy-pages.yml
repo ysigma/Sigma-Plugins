@@ -22,6 +22,12 @@ concurrency:
 
 jobs:
   build:
+    # Guard: only ever publish from `main`. GitHub Pages is a single shared site
+    # for the whole repo, so a manual run (workflow_dispatch) from any other
+    # branch would otherwise overwrite the production site. Skip every ref but
+    # main. (For belt-and-braces, also restrict the `github-pages` environment's
+    # deployment branches to `main` in repo Settings → Environments.)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,6 +54,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

@@ -10,6 +10,10 @@ page, so each has its own URL to register in Sigma:
 | **Saudi Arabia regions map** | `https://ysigma.github.io/Sigma-Plugins/saudi.html` | `src/saudi/` |
 | **Mini bar-line table** | `https://ysigma.github.io/Sigma-Plugins/table.html` | `src/table/` |
 | **Service status timeline** | `https://ysigma.github.io/Sigma-Plugins/status.html` | `src/status/` |
+| **Global threat-origin arc map** | `https://ysigma.github.io/Sigma-Plugins/arc.html` | `src/arc/` |
+| **Segmented Bar Meter** | `https://ysigma.github.io/Sigma-Plugins/segmented-bar/` | `segmented-bar/` |
+| **Circle Grid** | `https://ysigma.github.io/Sigma-Plugins/circle/` | `circle/` |
+| **Assessment Dot Plot** | `https://ysigma.github.io/Sigma-Plugins/assessment/` | `assessment/` |
 
 > Pages deploys on push to `main` (see `.github/workflows/deploy-pages.yml`). A
 > new plugin page goes live at its URL once merged to `main`.
@@ -85,49 +89,44 @@ camera is constrained so it never spins around or under the map.
 
 ### Features
 
-- 🗺️ **3D extruded regions** — all 13 ADM1 provinces, with region labels lying on
-  the map and crisp white borders. Geometry is bundled (simplified geoBoundaries
-  ADM1, ~1k points) so there are **no runtime network calls**.
+- 🗺️ **3D extruded regions** — all 13 ADM1 provinces in a fixed light silver-grey
+  palette (matching the reference design), with region labels lying on the map
+  and crisp white borders. Geometry is bundled (simplified geoBoundaries ADM1,
+  ~1k points) so there are **no runtime network calls**.
 - 🎚️ **Tilt-only rotation** — drag to tilt between near top-down and a low oblique
   angle; horizontal spin is locked by default (toggle "Allow left/right spin" for
   a small ± range). Scroll to zoom.
-- 🎨 **Region choropleth** — color regions by a status/tier column using the same
-  positional color slots + ordered legend as the globe plugin (click a legend
-  section to filter).
-- 📍 **Site callouts** — drop labelled gold pin-bubbles from a second data source
-  (label + latitude + longitude + status). Healthy → green ✓, down → red ✕.
-- 🔎 **Hover tooltips** for regions and sites.
-- 🧭 **Region name matching** accepts English names and common alternates
-  (Mecca/Makkah, Medina/Madinah, Eastern/Ash Sharqiyah, Jeddah-less "Makkah", …)
-  and tolerates "Region"/"Province"/"Al-" noise.
+- 📍 **Fixed site pins** — four callouts (DR, PIF TOWER, RDC, WAMID) baked in at
+  the reference-design positions (no lat/lng to manage). The **pin color** is a
+  picker; label text auto-contrasts for readability.
+- ✅ **Optional status** — a healthy/down state per pin can be driven from data,
+  matched to a pin by its label (healthy → green ✓, down → red ✕). With no data,
+  all pins show healthy.
+- 🔎 **Hover tooltips** on each pin, plus an extra "Ad Dammam" place label inside
+  Eastern Province.
 
 ### Editor panel options
 
 | Group | Option | Description |
 | --- | --- | --- |
-| Regions | **Regions: data source** | Element providing one row per region. |
-| Regions | **Region name** | Region names (Riyadh, Makkah, …). |
-| Regions | **Color by (status/tier)** | Column whose values color each region. |
-| Regions | **Tier order / labels** | First → last ordering for the legend/colors. |
-| Regions | **Region measure** | Optional numeric value shown in the tooltip. |
-| Sites | **Sites: data source** | Element providing one row per site/pin. |
-| Sites | **Site label / latitude / longitude / status** | Pin text, position, and health. |
-| Colors | **Color 1–5** | Positional colors mapped to the tier order. |
-| Appearance | **Base region color / Background / Border** | Map styling. |
+| Status | **Site status source** (optional) | Element providing per-site status. |
+| Status | **Site label** | Matches a row to a pin (DR / PIF TOWER / RDC / WAMID). |
+| Status | **Site status** | healthy → ✓ / down → ✕. |
+| Appearance | **Pin color** | Callout color (label text auto-contrasts). |
+| Appearance | **Background color** | Canvas background. |
 | Appearance | **3D thickness** | Flat · Low · Medium · High slab depth. |
 | Appearance | **Initial tilt** | Top-down · Low · Medium · High. |
 | Appearance | **Allow left/right spin** | Off = tilt up/down only (default). |
-| Appearance | **Show region labels / legend** | Toggles. |
+| Appearance | **Show region labels** | Toggle. |
 
 ### Standalone demo
 
-Opening the URL directly (outside Sigma) shows a demo that reproduces the
-reference design — plain regions with four healthy site callouts (DR, PIF TOWER,
-RDC, WAMID). Query params let you preview variants:
+Opening the URL directly (outside Sigma) reproduces the reference design — the
+four healthy site pins at their fixed positions. Query params preview variants:
 
-- `?regions=1` — preview the data-driven region choropleth (+ `&legend=1`).
+- `?pin=RRGGBB` — pin color, `?bg=RRGGBB` — background
 - `?tilt=Top-down|Low|Medium|High`, `?extrude=Flat|Low|Medium|High`
-- `?spin=1`, `?labels=0`, `?bg=001018`
+- `?spin=1`, `?labels=0`
 
 ### Region geometry
 
@@ -225,6 +224,210 @@ meets your freshness need.
 > workbook refresh *schedule* does **not** apply (that requires a JWT-authenticated
 > secure embed). Alternatively, reload the whole embed on a timer from the host
 > page / kiosk browser.
+
+---
+
+## Global Threat-Origin Arc Map
+
+An interactive, animated **attack-flow map** (`arc.html`). Each row's source
+coordinates spawn a glowing orange **arc** that flows — with a moving arrowhead
+"comet" — toward a destination (every arc converges on Riyadh, Saudi Arabia by
+default). Origin locations **pulsate**, and the destination shows a stronger
+convergence pulse. Built on [Leaflet](https://leafletjs.com/) for pan / zoom over
+a self-contained dark vector basemap, with a `requestAnimationFrame` canvas
+overlay for the flow animation.
+
+**Hosted at:** `https://ysigma.github.io/Sigma-Plugins/arc.html`
+
+### Features
+
+- 🌐 **Animated flow arcs** from each origin to the destination, with a bright
+  arrowhead that travels the arc and loops — drawn over a persistent line.
+- 📡 **Pulsating origins** and a **convergence pulse** at the destination.
+- 🎨 **Orange theme with severity accents** — Critical / High routes glow
+  brighter, draw thicker and pulse faster (a volume-weighted *representative*
+  severity per route); turn accents off for a uniform-orange look.
+- 🖱️ **Interactive** — smooth Leaflet pan / zoom (+/- control) and rich hover
+  tooltips (origin, attack types, severity breakdown, target assets, volume).
+- 🧮 **Auto-aggregation** — rows sharing a source/destination are merged
+  (volume summed) so the animation stays smooth on large datasets.
+- 🗺️ **Self-contained** — bundles Natural Earth 1:50m geometry; **no external
+  tile/network calls** at runtime, so it renders reliably inside Sigma.
+- ⚙️ **Configurable** — arc/land/border/label colors, flow speed, labels,
+  legend, and a default destination (name + lat/lon) are editor-panel options.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the rows. |
+| **Source latitude / longitude** | column | Origin coordinates (required). |
+| **Source label** | column | Origin country / city for tooltips. |
+| **Destination latitude / longitude** | column | Optional; omit to use the default destination for every arc. |
+| **Destination label** | column | Optional destination name for tooltips. |
+| **Severity** | column | Critical → Low; drives the orange accents. |
+| **Attack volume / count** | column | Scales arc thickness; summed per route. |
+| **Attack type / Target asset** | column | Shown in tooltips. |
+| **Default destination name / lat,lon** | text | Fallback destination (defaults to `Saudi Arabia` / `24.7136, 46.6753`). |
+| **Arc / Ocean / Land / Border / Label color** | color | Theme overrides. |
+| **Flow speed** | dropdown | Slow / Medium / Fast. |
+| **Accent arcs by severity** | toggle | Brighter/thicker/faster for higher-severity routes. |
+| **Show country labels / legend** | toggle | Map labels and the severity legend. |
+| **Auto-fit to data** | toggle | Frame the map to the bound points on load. |
+
+### How the flow & severity work
+
+Rows are aggregated into one arc per source→destination route (and one pulse per
+origin), summing the attack volume and keeping a full per-severity breakdown for
+the tooltip. A route's accent severity is its **volume-weighted mean severity**
+rounded to the nearest bucket, so a mostly-medium route reads cooler than a
+mostly-critical one. Arc width scales with volume; brightness, flow speed and
+pulse size scale with the accent severity — all within the orange family.
+
+---
+
+## Segmented Bar Meter
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/segmented-bar/`**
+
+A horizontal gauge: a bar split into **four colored sections** with a **value
+marker** (needle + value pill) that sits at the right spot across a numeric
+scale. You define the **min and max** of the whole bar, the **three thresholds**
+that split it into sections, and the **color** of each section. Great for
+"current level vs. thresholds" displays (risk/threat level, SLA, score, etc.).
+
+### Features
+
+- 🎨 **4 section colors** — each picked from Sigma's color palette (sensible
+  green → red defaults if left blank).
+- 📐 **Custom thresholds** — type the three cut-points; sections can be unequal
+  widths. Leave a threshold blank to fall back to an equal quarter of the range.
+- 🎯 **Value marker** — a single measure value drives a needle + value pill,
+  clamped to the bar ends if it falls outside the range. The needle's core takes
+  the color of the section it lands in (or a fixed marker color you choose).
+- 🔢 **Scale & threshold labels**, optional **title**, configurable bar
+  thickness, decimal places, marker/background/text colors.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Value (measure)** | column | Numeric measure; the first value positions the marker. |
+| **Scale minimum / maximum** | text | The numeric range of the whole bar (default `0` / `100`). |
+| **Threshold 1 / 2 / 3** | text | Section boundaries. Blank → ¼ / ½ / ¾ of the range. |
+| **Section 1–4 color** | color | Color for each of the four sections (left → right). |
+| **Title** | text | Optional title shown above the bar. |
+| **Show value label** | toggle | Show/hide the value pill on the marker. |
+| **Show scale & threshold labels** | toggle | Show/hide min/threshold/max ticks and numbers. |
+| **Decimal places** | dropdown | `Auto` or a fixed number of decimals. |
+| **Bar thickness (px)** | dropdown | Height of the bar. |
+| **Marker color** | color | Overrides the marker core color (blank = section color). |
+| **Background / Text color** | color | Plugin background and text color (auto-contrast by default). |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+design (value `25` on a 0–100 scale). Query params preview variants:
+`?value=72&min=0&max=100&t=31,57,79&colors=3aa655,c9b13a,e08a3c,cf4436&title=Score&light=1`.
+
+## Circle Grid
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/circle/`**
+
+A responsive grid of **high-definition rings**, one per value of a dimension,
+each with its **label centered inside** the ring and an optional **measure
+drawn below** it — matching the gold-rings-on-black reference design. A
+**single color control** drives the rings, their labels, and the values
+together, so the whole grid stays on one palette.
+
+### Features
+
+- ⭕ **Crisp SVG rings** — scale to any size without blurring; ring thickness is
+  proportional so circles read consistently at every size.
+- 🔤 **Label inside, measure below** — bind a dimension for the labels and
+  (optionally) a measure for the number under each ring. Labels wrap only at
+  spaces (whole words are never split mid-character), and **Auto-fit** shrinks
+  each label just enough to stay inside its ring. A **Label text size** control
+  also offers fixed sizes for manual control.
+- 🎨 **One color, everything** — a single color selector colors the rings,
+  labels, and values in unison (defaults to the reference gold). A separate
+  background control defaults to near-black to match the wireframe, and the
+  setup chrome auto-themes for light or dark backgrounds.
+- 🧱 **Responsive layout** — auto-fit columns (or a fixed 1–6) and Small /
+  Medium / Large circle sizes; the grid centers when it fits and scrolls when it
+  doesn't.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Label (dimension)** | column | One circle is drawn per row; this text goes inside the ring. |
+| **Measure** | column | Optional numeric measure drawn below each ring. |
+| **Color — rings, labels & values** | color | The single color applied to rings, labels, and values. |
+| **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
+| **Circle size** | dropdown | Extra small / Small / Medium / Large / Extra large. |
+| **Circle size override (px)** | text | Optional exact diameter in px (24–600); overrides the dropdown. |
+| **Label text size** | dropdown | `Auto-fit` (shrink each label to fit its ring) or fixed Small / Medium / Large / Extra large. |
+| **Columns** | dropdown | `Auto` (fit to width) or a fixed 1–6. |
+| **Ring thickness** | dropdown | Thin / Medium / Thick. |
+| **Show measure below circle** | toggle | Show/hide the value under each ring. |
+| **Uppercase labels** | toggle | Render labels in uppercase. |
+| **Decimal places** | dropdown | `Auto` or a fixed number of decimals. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+design (Departments and their open-item counts). Query params preview variants:
+`?color=2f6fd0&bg=ffffff&cols=4&thick=Thick&size=Small&px=72&lsize=Auto-fit&upper=1`.
+
+## Assessment Dot Plot
+
+URL: **`https://ysigma.github.io/Sigma-Plugins/assessment/`**
+
+A categorical **dot plot** for tracking each item (e.g. a tech platform) through a
+pipeline of stages. It takes **two dimensions**: a **Platform** dimension on the
+**rows** (one row per value) and a **Stage** dimension on the **x-axis**. Each
+platform's circle is drawn in the column matching its stage value — so dropping
+in or re-pointing the **Stage** column moves the circle to that stage. Matches the
+PIF assurance reference (Secure Design → Security Assessments → Remediation).
+
+### Features
+
+- ⏺ **Two-dimension placement** — platforms list down the left; each gets one
+  circle positioned in its stage's column. Change a row's stage and the dot moves.
+- 🎨 **Customizable color** — pick a swatch from the palette (Gold, Amber, Blue,
+  Teal, Green, Red, Orange, Purple, Pink, Slate) or set an exact custom hex. The
+  canvas auto-themes (light/dark) from the background, falling back to the
+  workbook style.
+- 📏 **Customizable circle size** — Extra small → Extra large, or an exact px-radius
+  override.
+- 📜 **Fits any list** — columns stay aligned; when there are more platforms than
+  fit, the plot scrolls vertically while the x-axis stays pinned at the bottom.
+- 🔎 **Hover tooltips** with the platform name and its stage. Platforms with no
+  stage value are listed (no circle) and counted in a small notice.
+
+### Editor panel options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| **Data source** | element | The Sigma element providing the data. |
+| **Platform (dimension)** | column | One row per distinct value, listed down the Y axis. |
+| **Stage (dimension)** | column | Decides which column each platform's circle sits in. |
+| **Stage order (left → right)** | text | Optional comma-separated column order, e.g. `Secure Design, Security Assessments, Remediation`. Stages not listed are appended in first-seen order. |
+| **Circle color (palette)** | dropdown | Named swatch for the circles. |
+| **Circle color (custom override)** | color | A custom hex color that overrides the palette swatch. |
+| **Background color** | color | Plugin background (defaults to near-black; falls back to the workbook style). |
+| **Circle size** | dropdown | Extra small / Small / Medium / Large / Extra large. |
+| **Circle size override (px radius)** | text | Optional exact radius in px (2–40); overrides the dropdown. |
+| **Show gridlines** | toggle | Faint row/column gridlines. |
+
+### Standalone demo
+
+Opening the URL directly (outside Sigma) shows a demo that mirrors the reference
+dashboard (platforms across the three assessment stages). Query params preview
+variants: `?color=4e79a7&bg=ffffff&size=Large&px=12&grid=0`.
 
 ## Local development
 

@@ -2,38 +2,23 @@
  * Editor-panel controls for the Saudi Arabia regions map plugin. Each `name`
  * becomes a key on the object returned by `useConfig()`.
  *
- * The map regions are fixed (styled to match the reference design); the only
- * data binding is the **Sites** source that drops labelled callout pins.
+ * The map regions and the four site pins (DR, PIF TOWER, RDC, WAMID) are fixed
+ * to match the reference design. The only optional data binding is each pin's
+ * healthy/down status, matched to a pin by its label.
  */
 import { client } from "@sigmacomputing/plugin";
 
 export function configureEditorPanel(): void {
   client.config.configureEditorPanel([
-    // ---- Sites (callout pins) --------------------------------------------
-    { name: "siteSource", type: "element", label: "Sites: data source" },
+    // ---- Site status (optional; positions/labels are fixed) --------------
+    { name: "siteSource", type: "element", label: "Site status source (optional)" },
     {
       name: "siteLabel",
       type: "column",
       source: "siteSource",
       allowMultiple: false,
       allowedTypes: ["text", "variant"],
-      label: "Site label (e.g. PIF TOWER)",
-    },
-    {
-      name: "siteLat",
-      type: "column",
-      source: "siteSource",
-      allowMultiple: false,
-      allowedTypes: ["number", "integer"],
-      label: "Site latitude",
-    },
-    {
-      name: "siteLng",
-      type: "column",
-      source: "siteSource",
-      allowMultiple: false,
-      allowedTypes: ["number", "integer"],
-      label: "Site longitude",
+      label: "Site label (matches DR / PIF TOWER / RDC / WAMID)",
     },
     {
       name: "siteStatus",
@@ -45,6 +30,7 @@ export function configureEditorPanel(): void {
     },
 
     // ---- Appearance -------------------------------------------------------
+    { name: "pinColor", type: "color", label: "Pin color" },
     { name: "backgroundColor", type: "color", label: "Background color" },
     {
       name: "extrude",

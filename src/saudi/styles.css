@@ -81,8 +81,8 @@ body,
   gap: 9px;
   padding: 8px 16px 8px 10px;
   border-radius: 2px;
-  background: #cbb06a;
-  color: #2a230f;
+  background: var(--pin-color, #cbb06a);
+  color: var(--pin-text, #2a230f);
   font-weight: 800;
   font-size: 16px;
   letter-spacing: 0.5px;
@@ -120,7 +120,7 @@ body,
   height: 0;
   border-left: 11px solid transparent;
   border-right: 11px solid transparent;
-  border-top: 13px solid #cbb06a;
+  border-top: 13px solid var(--pin-color, #cbb06a);
 }
 
 /* ---------- Hover tooltip ---------- */
