@@ -1,5 +1,10 @@
-import { useEffect, useMemo, type CSSProperties } from "react";
-import { useConfig, useElementData, client } from "@sigmacomputing/plugin";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useConfig,
+  useActionTrigger,
+  client,
+  type WorkbookElementData,
+} from "@sigmacomputing/plugin";
 import EmptyState from "./components/EmptyState";
 import StatusRow, { type Cell } from "./components/StatusRow";
 import TimeAxis from "./components/TimeAxis";
@@ -59,9 +64,50 @@ interface AppRow {
 export default function App() {
   const config = useConfig() ?? {};
   const sourceId = typeof config.source === "string" ? config.source : undefined;
-  const data = useElementData(sourceId ?? "");
 
   const standalone = useMemo(detectStandalone, []);
+
+  // Auto-refresh. A plugin can't query the warehouse itself; it only re-renders
+  // when the Sigma host pushes data. So on each interval we ask the host to
+  // re-provide the data two ways: (1) fire an optional "Refresh element" workbook
+  // action (forces the source element to re-query — the same path Sigma's native
+  // refresh uses), and (2) re-subscribe to the element data (pulls the host's
+  // current snapshot). Off by default. See the README "Auto-refresh" section.
+  const autoRefreshRaw =
+    typeof config.autoRefreshSeconds === "string" ? config.autoRefreshSeconds : "Off";
+  const autoRefreshSec = autoRefreshRaw === "Off" ? 0 : parseInt(autoRefreshRaw, 10) || 0;
+  const intervalMs = autoRefreshSec > 0 ? autoRefreshSec * 1000 : 0;
+
+  const fireRefresh = useActionTrigger("refreshAction");
+  const fireRefreshRef = useRef(fireRefresh);
+  fireRefreshRef.current = fireRefresh;
+
+  const [data, setData] = useState<WorkbookElementData>({});
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // Subscribe to the source element's data; re-subscribes when refreshTick bumps.
+  // Old data stays on screen until the new snapshot arrives (no flash).
+  useEffect(() => {
+    if (standalone || !sourceId) {
+      setData({});
+      return;
+    }
+    return client.elements.subscribeToElementData(sourceId, (d) => {
+      setData(d);
+      setLastUpdated(Date.now());
+    });
+  }, [standalone, sourceId, refreshTick]);
+
+  // Drive the refresh on the configured interval.
+  useEffect(() => {
+    if (standalone || !sourceId || intervalMs <= 0) return;
+    const id = window.setInterval(() => {
+      fireRefreshRef.current();
+      setRefreshTick((t) => t + 1);
+    }, intervalMs);
+    return () => window.clearInterval(id);
+  }, [standalone, sourceId, intervalMs]);
 
   useEffect(() => {
     client.config.setLoadingState(false);
@@ -236,16 +282,32 @@ export default function App() {
 
   const legendStates: Status[] = hasDegraded ? ["up", "degraded", "down"] : ["up", "down"];
 
+  const showRefreshBadge = !standalone && intervalMs > 0;
+  const lastUpdatedStr =
+    lastUpdated != null
+      ? new Date(lastUpdated).toLocaleTimeString(undefined, { hour12: false })
+      : null;
+
   return (
     <div className="sst-app" style={appStyle}>
       {!configured ? (
         <EmptyState steps={steps} />
       ) : (
         <>
-          {(displayTitle || showLegend) && (
+          {(displayTitle || showLegend || showRefreshBadge) && (
             <div className="sst-header">
               <div className="sst-title">{displayTitle}</div>
-              {showLegend && <Legend palette={palette} states={legendStates} />}
+              <div className="sst-header-right">
+                {showRefreshBadge && (
+                  <span
+                    className="sst-refresh"
+                    title={`Auto-refreshing every ${autoRefreshSec}s`}
+                  >
+                    ⟳ {lastUpdatedStr ?? "…"}
+                  </span>
+                )}
+                {showLegend && <Legend palette={palette} states={legendStates} />}
+              </div>
             </div>
           )}
           {!hasData || rows.length === 0 ? (

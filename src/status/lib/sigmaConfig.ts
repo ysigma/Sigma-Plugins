@@ -66,6 +66,20 @@ export function configureEditorPanel(): void {
       label: "Values counted as Degraded (optional)",
     },
 
+    // --- Auto-refresh ---
+    {
+      name: "autoRefreshSeconds",
+      type: "dropdown",
+      values: ["Off", "15", "30", "60", "120", "300", "600"],
+      defaultValue: "Off",
+      label: "Auto-refresh every (seconds)",
+    },
+    {
+      name: "refreshAction",
+      type: "action-trigger",
+      label: "Refresh action (optional; wire to a 'Refresh element' action)",
+    },
+
     // --- Appearance ---
     {
       name: "title",

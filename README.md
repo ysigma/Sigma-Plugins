@@ -181,10 +181,13 @@ degraded. Built to reproduce a typical service-availability board.
 | Timeline | **When a square has multiple readings** | Worst status wins · Most recent · Average. |
 | Timeline | **Values counted as Down** | Optional extra tokens (e.g. `0, 500, maintenance`). |
 | Timeline | **Values counted as Degraded** | Optional extra tokens (e.g. `warn, slow`). |
+| Refresh | **Auto-refresh every (seconds)** | `Off` (default) or 15–600 s — re-pull data on an interval without interaction. |
+| Refresh | **Refresh action** | Optional action trigger; wire it to a *Refresh element* action for a guaranteed re-query (see below). |
 | Appearance | **Title** | Optional label, top-left. |
 | Appearance | **Up / Degraded / Down / No-data color** | Square colors. |
 | Appearance | **Background / Text color** | Panel styling. |
 | Appearance | **Label column width** | 180–480 px. |
+| Appearance | **Row height** | 12–30 px — vertical density of each row. |
 | Appearance | **Make URLs clickable** | Linkify URLs in the row label (default on). |
 | Appearance | **Show legend** | Up/Down(/Degraded) swatches in the header. |
 
@@ -196,6 +199,32 @@ latest reading, **including empty buckets** so real gaps stay visible (capped at
 600 columns — increase the bucket size for very long ranges). Within each
 bucket the readings are classified to `up` / `degraded` / `down` and combined by
 the chosen aggregation; the resulting status picks the square color.
+
+### Auto-refresh (unattended dashboards)
+
+A Sigma plugin **cannot query the warehouse itself** — it only re-renders when
+the Sigma host pushes new data. So a plugin timer can't fetch new rows on its
+own; it can only ask the host to re-provide them. **Auto-refresh every (seconds)**
+turns that on: each interval the plugin (1) fires the optional **Refresh action**
+and (2) re-subscribes to its source element to pull the host's current snapshot.
+A small `⟳ HH:MM:SS` badge in the header shows the last update. Old data stays on
+screen until the new snapshot arrives (no flash).
+
+For a **guaranteed re-query** (e.g. if re-subscribe alone doesn't pull fresh
+rows), wire the **Refresh action**: in the workbook, add an **Action** to the
+plugin element → **Refresh element** → target the plugin's source element, and
+map it to this plugin's *Refresh action* trigger. This reuses Sigma's native
+refresh path. Notes: use a **live-query** source (a *materialized* element won't
+show new rows until it re-materializes — the Refresh element action does not
+refresh materialized elements); mind the query-ID cache TTL (default ~10 min);
+and every interval re-queries the warehouse, so pick the slowest cadence that
+meets your freshness need.
+
+> **Embeds:** the plugin's auto-refresh runs inside the workbook, so it works
+> regardless of embed type — including **public embeds**, where Sigma's own
+> workbook refresh *schedule* does **not** apply (that requires a JWT-authenticated
+> secure embed). Alternatively, reload the whole embed on a timer from the host
+> page / kiosk browser.
 
 ## Local development
 
